@@ -1,0 +1,67 @@
+name: OCR Pipeline - Procesamiento Automático
+
+on:
+  # Ejecutar cada 10 minutos durante horario laboral en México
+  # Horario: 8:00 AM - 6:00 PM (México = UTC-6)
+  # En UTC: 14:00 - 00:00 (2:00 PM - 12:00 AM)
+  schedule:
+    # Cada 10 minutos de 14:00 a 23:59 UTC
+    - cron: '*/10 14-23 * * *'
+    # Cada 10 minutos de 00:00 a 00:59 UTC (6:00 PM México)
+    - cron: '*/10 0 * * *'
+  
+  # Permitir ejecución manual
+  workflow_dispatch:
+
+jobs:
+  process-images:
+    runs-on: ubuntu-latest
+    
+    # Timeout de 30 minutos (suficiente para procesar 50 imágenes)
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: 📦 Install System Dependencies (Tesseract)
+        run: |
+          echo "📦 Instalando Tesseract OCR..."
+          sudo apt-get update
+          sudo apt-get install -y \
+            tesseract-ocr \
+            tesseract-ocr-spa \
+            libtesseract-dev
+          
+          # Verificar instalación
+          tesseract --version
+          echo "✅ Tesseract instalado correctamente"
+      
+      - name: 📦 Install Python Dependencies
+        run: |
+          echo "📦 Instalando dependencias de Python..."
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "✅ Dependencias instaladas"
+      
+      - name: 🚀 Run OCR Pipeline
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_NAME: ${{ secrets.SPREADSHEET_NAME }}
+        run: |
+          echo "🚀 Iniciando pipeline OCR..."
+          python src/main_ocr.py
+      
+      - name: 📊 Upload Logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-pipeline-logs
+          path: ocr_pipeline.log
+          retention-days: 7
