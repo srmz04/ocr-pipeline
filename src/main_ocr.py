@@ -32,8 +32,8 @@ from src.drive_manager import DriveManager
 from src.sheets_manager import SheetsManager
 from src.image_processor import preprocess_image, validate_image
 from src.ocr_engine import extract_text_hybrid
+from src.robust_extractor import RobustExtractor
 from src.curp_validator import (
-    extract_curp_from_text,
     validate_curp_complete,
     extract_info_from_curp
 )
@@ -206,23 +206,26 @@ class OCRPipeline:
             # Verificar si es duplicado
             if self.sheets_manager.check_curp_exists(best_curp):
                 logger.warning(f"⚠️ CURP duplicada: {best_curp}")
-                result['status'] = 'DUPLICADO'
-                result['destination_folder'] = FOLDER_REVISION_NAME
-                self.stats['duplicados'] += 1
-                return result
+            # 4. Extraer información (CURP)
+            logger.info("🔍 Buscando CURP en el texto...")
             
-            # Extraer información adicional de la CURP
-            curp_info = extract_info_from_curp(best_curp)
-            if curp_info:
-                result['sexo'] = curp_info['sexo']
+            # Usar Extractor Robusto
+            curp_encontrada = RobustExtractor.find_curp_fuzzy(raw_text)
             
-            # Determinar carpeta destino según confianza
-            if best_confidence >= CONFIDENCE_THRESHOLD:
+            if curp_encontrada:
+                logger.info(f"✅ CURP detectada: {curp_encontrada}")
+                result['curp'] = curp_encontrada
                 result['status'] = 'PROCESADO'
                 result['destination_folder'] = FOLDER_PROCESADAS_NAME
-                logger.info(f"✅ CURP válida: {best_curp} (confianza: {best_confidence:.2f})")
+                
+                # Extraer info adicional de la CURP
+                info_curp = extract_info_from_curp(curp_encontrada)
+                if info_curp:
+                    result['sexo'] = info_curp.get('sexo', '')
+                    # result['fecha_nacimiento'] = info_curp.get('fecha_nacimiento', '')
             else:
-                result['status'] = 'BAJA_CONFIANZA'
+                logger.warning("⚠️ No se encontró CURP válida")
+                result['status'] = 'SIN_CURP'
                 result['destination_folder'] = FOLDER_REVISION_NAME
                 logger.warning(f"⚠️ CURP con baja confianza: {best_curp} ({best_confidence:.2f})")
             
@@ -282,22 +285,31 @@ class OCRPipeline:
                     else:
                         self.stats['errores'] += 1
                     
-                    # Agregar registro a Sheets
-                    file_link = self.drive_manager.get_file_link(result['file_id'])
+                    # 5. Guardar resultados
+                    logger.info("💾 Guardando resultados...")
                     
-                    registro_data = {
+                    # Preparar datos para Sheets
+                    sheet_data = {
                         'fecha_hora': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'nombre_archivo': result['file_name'],
                         'curp_detectada': result['curp'],
                         'confianza_ocr': f"{result['confidence']:.2f}",
-                        'nombre_extraido': result['nombre'],
-                        'sexo_extraido': result['sexo'],
+                        'nombre_extraido': result.get('nombre', ''),
+                        'sexo_extraido': result.get('sexo', ''),
                         'texto_crudo': result['raw_text'],
                         'status': result['status'],
-                        'link_foto': file_link
+                        'link_foto': self.drive_manager.get_file_link(result['file_id'])
                     }
                     
-                    self.sheets_manager.add_registro(registro_data)
+                    # Actualizar hoja (buscar por nombre de archivo)
+                    if self.sheets_manager.update_entry_by_filename(result['file_name'], sheet_data):
+                        # Stats are already updated based on result['success'] and result['status']
+                        pass
+                    else:
+                        logger.error(f"❌ Error al actualizar registro para {result['file_name']}")
+                        # If update fails, it's an error in sheets operation, not necessarily image processing
+                        # The original stats update logic for image processing success/failure remains.
+                        # We might want to add a specific stat for sheets update errors if needed.
                     
                     # Mover archivo a carpeta correspondiente
                     self.drive_manager.move_file(
