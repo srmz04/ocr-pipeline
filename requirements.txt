@@ -7,7 +7,8 @@ gspread==5.12.3
 
 # OCR Libraries
 pytesseract==0.3.10
-easyocr==1.7.1
+# easyocr==1.7.1  # DESHABILITADO: Ocupa ~2GB, causa error "No space left on device" en GitHub Actions
+                  # Si necesitas EasyOCR, instálalo localmente y cambia USE_EASYOCR_FALLBACK=True en config.py
 
 # Image Processing
 opencv-python-headless==4.8.1.78

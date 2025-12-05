@@ -59,7 +59,7 @@ REGISTRO/
 
 1. **Crear estructura de carpetas en Drive**
    ```
-   CAMPAÑA_VACUNACION/
+   MACROCENTRO/
    ├── ENTRADA/          # Aquí subes las fotos nuevas
    ├── PROCESADAS/       # Fotos procesadas exitosamente
    ├── ERRORES/          # Fotos con errores de OCR

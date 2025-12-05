@@ -22,7 +22,9 @@ from config import (
     FOLDER_ENTRADA_NAME,
     FOLDER_PROCESADAS_NAME,
     FOLDER_ERRORES_NAME,
-    FOLDER_REVISION_NAME
+    FOLDER_REVISION_NAME,
+    ROOT_FOLDER_NAME,
+    USE_EASYOCR_FALLBACK
 )
 
 from src.auth import get_drive_service, get_sheets_client
@@ -81,7 +83,7 @@ class OCRPipeline:
             drive_service = get_drive_service()
             self.drive_manager = DriveManager(drive_service)
             
-            if not self.drive_manager.initialize_folders():
+            if not self.drive_manager.initialize_folders(ROOT_FOLDER_NAME):
                 logger.error("❌ Error al inicializar carpetas de Drive")
                 return False
             
@@ -156,7 +158,10 @@ class OCRPipeline:
             
             # Extraer texto con OCR híbrido
             logger.info("🔍 Extrayendo texto con OCR...")
-            raw_text, ocr_confidence, ocr_method = extract_text_hybrid(processed_image)
+            raw_text, ocr_confidence, ocr_method = extract_text_hybrid(
+                processed_image,
+                use_easyocr_fallback=USE_EASYOCR_FALLBACK
+            )
             
             result['raw_text'] = raw_text[:500]  # Limitar a 500 caracteres
             result['confidence'] = ocr_confidence

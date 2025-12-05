@@ -66,7 +66,7 @@ class DriveManager:
             logger.error(f"❌ Error al buscar carpeta '{folder_name}': {e}")
             return None
     
-    def initialize_folders(self, root_folder_name="CAMPAÑA_VACUNACION"):
+    def initialize_folders(self, root_folder_name="MACROCENTRO"):
         """
         Inicializa y cachea los IDs de las carpetas necesarias.
         

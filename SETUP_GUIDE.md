@@ -95,9 +95,9 @@ Configurar Google Cloud Platform, Google Drive, Google Sheets y GitHub para que 
 
 1. Ve a [Google Drive](https://drive.google.com/)
 2. Clic en **"Nuevo" > "Carpeta"**
-3. **Nombre**: `CAMPAÑA_VACUNACION`
+3. **Nombre**: `MACROCENTRO`
 4. Clic en **"Crear"**
-5. **Entra** a la carpeta `CAMPAÑA_VACUNACION`
+5. **Entra** a la carpeta `MACROCENTRO`
 6. Crea 4 subcarpetas (repite el proceso):
    - `ENTRADA`
    - `PROCESADAS`
@@ -106,7 +106,7 @@ Configurar Google Cloud Platform, Google Drive, Google Sheets y GitHub para que 
 
 **Estructura final:**
 ```
-CAMPAÑA_VACUNACION/
+MACROCENTRO/
 ├── ENTRADA/
 ├── PROCESADAS/
 ├── ERRORES/
@@ -126,7 +126,7 @@ CAMPAÑA_VACUNACION/
 6. Clic en **"Compartir"**
 
 **Repite para las 5 carpetas:**
-- ✅ `CAMPAÑA_VACUNACION`
+- ✅ `MACROCENTRO`
 - ✅ `ENTRADA`
 - ✅ `PROCESADAS`
 - ✅ `ERRORES`

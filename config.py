@@ -9,6 +9,7 @@ SCOPES = [
 ]
 
 # Nombres de carpetas en Google Drive
+ROOT_FOLDER_NAME = "MACROCENTRO"  # Nombre de la carpeta raíz en Drive
 FOLDER_ENTRADA_NAME = "ENTRADA"
 FOLDER_PROCESADAS_NAME = "PROCESADAS"
 FOLDER_ERRORES_NAME = "ERRORES"
@@ -45,6 +46,7 @@ TESSERACT_LANG = 'spa'
 # Configuración de EasyOCR
 EASYOCR_LANGS = ['es', 'en']
 EASYOCR_GPU = False  # GitHub Actions no tiene GPU
+USE_EASYOCR_FALLBACK = False  # DESHABILITADO por defecto (ocupa mucho espacio en GitHub Actions)
 
 # Regex para CURP (18 caracteres)
 # Formato: 4 letras + 6 dígitos (YYMMDD) + H/M + 5 letras + 1 alfanumérico + 1 dígito
