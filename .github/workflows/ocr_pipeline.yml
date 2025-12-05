@@ -33,6 +33,13 @@ jobs:
           echo "📋 Paquetes instalados:"
           pip list
       
+      - name: 🔍 Run Diagnostic (Debug Drive Access)
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: |
+          echo "🔍 Ejecutando diagnóstico de Drive..."
+          python diagnostico_drive.py
+      
       - name: 🚀 Run OCR Pipeline
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
