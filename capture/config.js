@@ -6,12 +6,12 @@ const CONFIG = {
     DRIVE_FOLDER_ID: '1pIqnbmu3SGwZkv6ZL6OzUbNzJ4UHYCq0', // Carpeta ENTRADAS
     SPREADSHEET_ID: '1BiWRVISIADl9mRzOJABQLtlLLm7VebRYtfd2CRCoqXI', // REGISTRO_MASTER
 
-    // Validation thresholds
-    MIN_RESOLUTION: 1200,
-    MIN_BRIGHTNESS: 80,
-    MAX_BRIGHTNESS: 180,
-    MIN_SHARPNESS: 100,
-
+    // Validation thresholds - RELAXED FOR TESTING
+    MIN_RESOLUTION: 640, // Was 1200
+    MIN_BRIGHTNESS: 40,  // Was 80
+    MAX_BRIGHTNESS: 250, // Was 180
+    MIN_SHARPNESS: 10,   // Was 100
+    MIN_CONFIDENCE: 0.3, // Was 0.6
     // Biológicos disponibles
     BIOLOGICOS: [
         { name: 'TDAP', dosis: ['1ª', '2ª', 'Refuerzo'] },

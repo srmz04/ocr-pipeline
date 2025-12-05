@@ -2,6 +2,7 @@
 credentials.json
 service_account.json
 *.json
+!capture/manifest.json
 
 # Python
 __pycache__/

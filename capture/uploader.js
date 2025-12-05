@@ -155,4 +155,36 @@ class DriveUploader {
     }
 }
 
+// Mock Uploader for offline/fallback mode
+class MockUploader {
+    async initialize() {
+        console.log('⚠️ Mock Uploader initialized (Offline Mode)');
+        return true;
+    }
+
+    async uploadPhoto(blob, metadata) {
+        console.log('📸 Mock upload photo:', metadata);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+        return {
+            success: true,
+            fileId: 'mock_file_' + Date.now(),
+            url: URL.createObjectURL(blob) // Local URL for preview
+        };
+    }
+
+    async uploadToSheets(data) {
+        console.log('📝 Mock upload to sheets:', data);
+        // Save to localStorage for persistence testing
+        const offlineData = JSON.parse(localStorage.getItem('offline_captures') || '[]');
+        offlineData.push({
+            ...data,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('offline_captures', JSON.stringify(offlineData));
+
+        return { success: true };
+    }
+}
+
 window.DriveUploader = DriveUploader;
+window.MockUploader = MockUploader;
