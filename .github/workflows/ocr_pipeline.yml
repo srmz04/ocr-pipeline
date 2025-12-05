@@ -31,7 +31,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'  # ✅ Ya está activado - cachea dependencias de pip
+          # cache: 'pip'  # DESHABILITADO temporalmente para limpiar cache con EasyOCR
+      
+      - name: 🧹 Clean pip cache
+        run: |
+          echo "🧹 Limpiando cache de pip (eliminar EasyOCR antiguo)..."
+          pip cache purge || true
+          echo "✅ Cache limpiado"
       
       - name: 📦 Cache APT packages
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -42,27 +48,18 @@ jobs:
       - name: 📦 Install System Dependencies (Tesseract)
         run: |
           echo "📦 Verificando Tesseract OCR..."
-          if ! command -v tesseract &> /dev/null; then
-            echo "Instalando Tesseract..."
-            sudo apt-get update
-            sudo apt-get install -y \
-              tesseract-ocr \
-              tesseract-ocr-spa \
-              libtesseract-dev
-          else
-            echo "✅ Tesseract ya instalado (desde cache)"
-          fi
-          
-          # Verificar instalación
-          tesseract --version
+          tesseract --version || sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-spa
           echo "✅ Tesseract listo"
       
       - name: 📦 Install Python Dependencies
         run: |
           echo "📦 Instalando dependencias de Python..."
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --no-cache-dir -r requirements.txt
           echo "✅ Dependencias instaladas"
+          echo ""
+          echo "📋 Paquetes instalados:"
+          pip list | grep -E "(google|gspread|pytesseract|opencv|pillow|numpy|pandas)"
       
       - name: 🚀 Run OCR Pipeline
         env:
