@@ -1,73 +1,43 @@
 name: OCR Pipeline - Procesamiento Automático
 
 on:
-  # Ejecutar cada 10 minutos durante horario laboral en México
-  # Horario: 8:00 AM - 6:00 PM (México = UTC-6)
-  # En UTC: 14:00 - 00:00 (2:00 PM - 12:00 AM)
   schedule:
-    # Cada 10 minutos de 14:00 a 23:59 UTC
     - cron: '*/10 14-23 * * *'
-    # Cada 10 minutos de 00:00 a 00:59 UTC (6:00 PM México)
     - cron: '*/10 0 * * *'
-  
-  # Permitir ejecución manual
   workflow_dispatch:
 
 jobs:
   process-images:
     runs-on: ubuntu-latest
-    
-    # Timeout de 30 minutos (suficiente para procesar 50 imágenes)
-    timeout-minutes: 30
+    timeout-minutes: 15
     
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch full history to ensure latest code
-          clean: true     # Clean working directory
       
       - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-          # cache: 'pip'  # DESHABILITADO temporalmente para limpiar cache con EasyOCR
+          python-version: '3.10'
       
-      - name: 🧹 Clean pip cache
+      - name: 📦 Install Tesseract
         run: |
-          echo "🧹 Limpiando cache de pip (eliminar EasyOCR antiguo)..."
-          pip cache purge || true
-          echo "✅ Cache limpiado"
-      
-      - name: 📦 Cache APT packages
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: tesseract-ocr tesseract-ocr-spa libtesseract-dev
-          version: 1.0
-      
-      - name: 📦 Install System Dependencies (Tesseract)
-        run: |
-          echo "📦 Verificando Tesseract OCR..."
-          tesseract --version || sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-spa
-          echo "✅ Tesseract listo"
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-spa
+          tesseract --version
       
       - name: 📦 Install Python Dependencies
         run: |
-          echo "📦 Instalando dependencias de Python..."
           pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
-          echo "✅ Dependencias instaladas"
-          echo ""
+          pip install -r requirements.txt
           echo "📋 Paquetes instalados:"
-          pip list | grep -E "(google|gspread|pytesseract|opencv|pillow|numpy|pandas)"
+          pip list
       
       - name: 🚀 Run OCR Pipeline
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           SPREADSHEET_NAME: ${{ secrets.SPREADSHEET_NAME }}
-        run: |
-          echo "🚀 Iniciando pipeline OCR..."
-          python src/main_ocr.py
+        run: python src/main_ocr.py
       
       - name: 📊 Upload Logs (on failure)
         if: failure()
