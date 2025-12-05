@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>Captura Rápida - Vacunación</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="header">
+        <h1 class="header-title">📷 Captura</h1>
+        <div class="header-actions">
+            <button id="historyBtn" class="icon-btn" title="Historial">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
+            <button id="helpBtn" class="icon-btn" title="Ayuda">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+    
+    <!-- Camera View -->
+    <main class="camera-container">
+        <video id="camera" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+        
+        <!-- Status Indicator -->
+        <div id="status" class="status status-ready">
+            🟢 Listo para capturar
+        </div>
+        
+        <!-- Guide Frame -->
+        <div id="guideFrame" class="guide-frame">
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+        </div>
+    </main>
+    
+    <!-- Biológico Selector -->
+    <section class="selector">
+        <label class="selector-label">BIOLÓGICO</label>
+        <div class="chip-container" id="bioSelector">
+            <button class="chip" data-bio="TDAP">TDAP</button>
+            <button class="chip" data-bio="Neumococo">Neumococo</button>
+            <button class="chip" data-bio="Influenza">Influenza</button>
+            <button class="chip" data-bio="Sarampión">Sarampión</button>
+            <button class="chip" data-bio="Hepatitis B">Hepatitis B</button>
+            <button class="chip" data-bio="BCG">BCG</button>
+            <button class="chip" data-bio="Rotavirus">Rotavirus</button>
+            <button class="chip" data-bio="Otro">Otro...</button>
+        </div>
+    </section>
+    
+    <!-- Dosis Selector -->
+    <section class="selector">
+        <label class="selector-label">DOSIS</label>
+        <div class="chip-container" id="dosisSelector">
+            <button class="chip" data-dosis="1ª">1ª</button>
+            <button class="chip" data-dosis="2ª">2ª</button>
+            <button class="chip" data-dosis="3ª">3ª</button>
+            <button class="chip" data-dosis="Refuerzo">Refuerzo</button>
+            <button class="chip" data-dosis="Única">Única</button>
+        </div>
+    </section>
+    
+    <!-- Capture Button -->
+    <button id="captureBtn" class="capture-button" disabled>
+        <span class="capture-icon">●</span>
+        <span class="capture-text">CAPTURAR</span>
+    </button>
+    
+    <!-- Stats Footer -->
+    <footer class="footer">
+        <span>Hoy: <strong id="countToday">0</strong></span>
+        <span>Última: <strong id="lastTime">--:--</strong></span>
+    </footer>
+    
+    <!-- History Sidebar (Hidden by default) -->
+    <aside id="historySidebar" class="sidebar hidden">
+        <div class="sidebar-header">
+            <h2>Últimas capturas</h2>
+            <button id="closeSidebar" class="icon-btn">✕</button>
+        </div>
+        <div id="historyList" class="history-list">
+            <!-- Populated dynamically -->
+        </div>
+    </aside>
+    
+    <!-- Help Modal (Hidden by default) -->
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 Guía Rápida</h2>
+                <button id="closeHelp" class="icon-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <h3>Pasos:</h3>
+                <ol>
+                    <li>Selecciona el <strong>biológico</strong> aplicado</li>
+                    <li>Selecciona la <strong>dosis</strong></li>
+                    <li>Encuadra la <strong>credencial o cartilla</strong></li>
+                    <li>Espera señal verde 🟢</li>
+                    <li>Presiona <strong>CAPTURAR</strong></li>
+                </ol>
+                
+                <h3>Indicadores:</h3>
+                <ul>
+                    <li>🟢 <strong>Verde</strong>: Listo para capturar</li>
+                    <li>🟡 <strong>Amarillo</strong>: Mejora iluminación/enfoque</li>
+                    <li>🔴 <strong>Rojo</strong>: No se puede capturar</li>
+                </ul>
+                
+                <h3>Tips:</h3>
+                <ul>
+                    <li>Usa buena iluminación natural</li>
+                    <li>Mantén el documento plano</li>
+                    <li>Evita reflejos y sombras</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p>Subiendo...</p>
+    </div>
+    
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast hidden"></div>
+    
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="camera.js"></script>
+    <script src="validator.js"></script>
+    <script src="uploader.js"></script>
+    <script src="app.js"></script>
+    
+</body>
+</html>
