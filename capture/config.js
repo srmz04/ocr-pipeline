@@ -1,12 +1,10 @@
 // Configuration for the capture app
 const CONFIG = {
-    // Google Drive API
-    DRIVE_API_KEY: '', // Will be set from GitHub Secrets or env
-    DRIVE_CLIENT_ID: '', // Will be set from GitHub Secrets or env
-    DRIVE_FOLDER_ID: '1pIqnbmu3SGwZkv6ZL6OzUbNzJ4UHYCq0/ENTRADAS', // From diagnostics
-
-    // Spreadsheet
-    SPREADSHEET_ID: '', // Will be set
+    // Google API - CREDENCIALES CONFIGURADAS ✅
+    GOOGLE_API_KEY: 'AIzaSyBgS9f8i0NHkH6b0AYZy6musOhEOYadW4w',
+    GOOGLE_CLIENT_ID: '640594634744-skq9inktjis8t7s2hd5rknrljkms0c9b.apps.googleusercontent.com',
+    DRIVE_FOLDER_ID: '1pIqnbmu3SGwZkv6ZL6OzUbNzJ4UHYCq0', // Carpeta ENTRADAS
+    SPREADSHEET_ID: '1BiWRVISIADl9mRzOJABQLtlLLm7VebRYtfd2CRCoqXI', // REGISTRO_MASTER
 
     // Validation thresholds
     MIN_RESOLUTION: 1200,

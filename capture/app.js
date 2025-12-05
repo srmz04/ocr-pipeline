@@ -1,13 +1,13 @@
-// Main application logic
 class CaptureApp {
     constructor() {
+        this.apiClient = new GoogleAPIClient();
         this.camera = new CameraManager();
         this.validator = new QualityValidator(this.camera);
-        this.uploader = new DriveUploader();
-
+        this.uploader = null; // Initialized after API client
+        
         this.selectedBiologico = null;
         this.selectedDosis = null;
-
+        
         this.elements = {};
         this.initializeElements();
         this.attachEventListeners();
@@ -73,22 +73,34 @@ class CaptureApp {
     }
 
     async init() {
+        this.showLoading('Inicializando Google API...');
+        
+        // Initialize Google API Client
+        const apiOk = await this.apiClient.initialize();
+        if (!apiOk) {
+            this.hideLoading();
+            this.showToast('❌ Error al inicializar Google API', 'error');
+            return;
+        }
+        
+        // Initialize uploader with API client
+        this.uploader = new DriveUploader(this.apiClient);
+        await this.uploader.initialize();
+        
         this.showLoading('Iniciando cámara...');
-
+        
         const cameraOk = await this.camera.initialize();
         if (!cameraOk) {
             this.hideLoading();
             return;
         }
-
-        await this.uploader.initialize();
-
+        
         // Start quality validation
         this.validator.startContinuousValidation((result) => {
             this.updateStatus(result);
             this.updateCaptureButton(result.valid);
         });
-
+        
         this.hideLoading();
         this.showToast('¡Listo para capturar!');
     }
@@ -166,7 +178,7 @@ class CaptureApp {
     updateStatus(result) {
         const status = this.elements.status;
         status.textContent = result.message;
-        status.className = `status status-${result.status}`;
+        status.className = `status status - ${ result.status } `;
     }
 
     updateCaptureButton(isValid) {

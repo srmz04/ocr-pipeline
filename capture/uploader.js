@@ -1,39 +1,90 @@
-// Uploader module - handles Google Drive upload
 class DriveUploader {
-    constructor() {
-        this.accessToken = null;
+    constructor(apiClient) {
+        this.apiClient = apiClient;
     }
 
     async initialize() {
-        // Initialize Google API client
-        // This will be implemented with actual OAuth flow
-        // For now, placeholder
-        console.log('Drive uploader initialized');
+        // Ensure API client is ready
+        if (!this.apiClient.isInitialized) {
+            console.warn('Google API not initialized yet');
+            return false;
+        }
+
+        console.log('✅ Drive uploader initialized');
+        return true;
     }
 
     async uploadPhoto(blob, metadata) {
         try {
+            // Ensure authentication
+            const isAuth = await this.apiClient.ensureAuth();
+            if (!isAuth) {
+                throw new Error('Autenticación cancelada');
+            }
+
             const filename = `captura_${Date.now()}.jpg`;
 
-            // Create form data
-            const formData = new FormData();
-            formData.append('file', blob, filename);
-            formData.append('metadata', JSON.stringify({
-                biologico: metadata.biologico,
-                dosis: metadata.dosis,
-                timestamp: new Date().toISOString()
-            }));
+            // Create metadata for Drive
+            const fileMetadata = {
+                name: filename,
+                parents: [CONFIG.DRIVE_FOLDER_ID],
+                description: `${metadata.biologico} - ${metadata.dosis}`,
+            };
 
-            // For MVP: upload to a simple endpoint
-            // Later: implement full Google Drive API
+            // Create multipart body
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
 
-            // Simulate upload delay
-            await this.simulateUpload();
+            const metadataBody = JSON.stringify(fileMetadata);
+
+            // Convert blob to base64
+            const reader = new FileReader();
+            const base64Data = await new Promise((resolve) => {
+                reader.onloadend = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.readAsDataURL(blob);
+            });
+
+            // Build multipart request body
+            const multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                metadataBody +
+                delimiter +
+                'Content-Type: image/jpeg\r\n' +
+                'Content-Transfer-Encoding: base64\r\n\r\n' +
+                base64Data +
+                close_delim;
+
+            // Upload to Drive
+            const response = await gapi.client.request({
+                path: '/upload/drive/v3/files',
+                method: 'POST',
+                params: { uploadType: 'multipart' },
+                headers: {
+                    'Content-Type': 'multipart/related; boundary="' + boundary + '"',
+                },
+                body: multipartRequestBody,
+            });
+
+            const fileId = response.result.id;
+
+            // Make file accessible (view link)
+            await gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: {
+                    type: 'anyone',
+                    role: 'reader',
+                },
+            });
 
             return {
                 success: true,
-                fileId: 'simulated_' + Date.now(),
-                url: `https://drive.google.com/file/d/simulated_${Date.now()}/view`
+                fileId: fileId,
+                url: `https://drive.google.com/file/d/${fileId}/view`
             };
 
         } catch (error) {
@@ -45,24 +96,62 @@ class DriveUploader {
         }
     }
 
-    async simulateUpload() {
-        // Simula tiempo de subida
-        return new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
     async uploadToSheets(data) {
-        // TODO: Implement Google Sheets API integration
-        console.log('Uploading to sheets:', data);
+        try {
+            // Ensure authentication
+            const isAuth = await this.apiClient.ensureAuth();
+            if (!isAuth) {
+                throw new Error('Autenticación cancelada');
+            }
 
-        // Save to localStorage for now
-        const existing = JSON.parse(localStorage.getItem('registros') || '[]');
-        existing.push({
-            ...data,
-            timestamp: new Date().toISOString()
-        });
-        localStorage.setItem('registros', JSON.stringify(existing));
+            // Prepare row data
+            const now = new Date();
+            const row = [
+                now.toISOString(),                    // FECHA_HORA_CAPTURA
+                'WEB_CAPTURE',                        // TIPO_DOCUMENTO
+                '',                                   // NOMBRE (lo llenará OCR)
+                '',                                   // APELLIDO_PATERNO
+                '',                                   // APELLIDO_MATERNO
+                '',                                   // NOMBRE_COMPLETO
+                '',                                   // CURP
+                '',                                   // FECHA_NACIMIENTO
+                '',                                   // EDAD
+                '',                                   // SEXO
+                '',                                   // ESTADO
+                '',                                   // MUNICIPIO
+                '',                                   // CLAVE_ELECTOR
+                data.biologico,                       // BIOLOGICO
+                data.dosis,                           // DOSIS
+                '',                                   // CONFIANZA_OCR (lo llenará OCR)
+                '',                                   // TEXTO_EXTRAIDO
+                'PENDIENTE_OCR',                      // STATUS
+                data.fileUrl,                         // LINK_FOTO
+                data.operador || 'web',               // OPERADOR
+                data.observaciones || ''              // OBSERVACIONES
+            ];
 
-        return { success: true };
+            // Append to sheet
+            const response = await gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: CONFIG.SPREADSHEET_ID,
+                range: 'REGISTRO_MASTER!A:U',
+                valueInputOption: 'USER_ENTERED',
+                resource: {
+                    values: [row]
+                }
+            });
+
+            return {
+                success: true,
+                updatedRange: response.result.updates.updatedRange
+            };
+
+        } catch (error) {
+            console.error('Sheets error:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
     }
 }
 
