@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to ensure latest code
+          clean: true     # Clean working directory
       
       - name: 🐍 Set up Python
         uses: actions/setup-python@v5
