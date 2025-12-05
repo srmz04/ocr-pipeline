@@ -233,6 +233,4 @@ Este proyecto es de uso interno para la campaña de vacunación.
 
 Para problemas o preguntas, contacta al equipo de desarrollo.
 
----
 
-**Desarrollado con ❤️ para eliminar el trabajo manual y cumplir con el requisito de "usar IA" del jefe** 😉

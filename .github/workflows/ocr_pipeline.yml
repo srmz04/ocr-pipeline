@@ -31,20 +31,31 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip'
+          cache: 'pip'  # ✅ Ya está activado - cachea dependencias de pip
+      
+      - name: 📦 Cache APT packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: tesseract-ocr tesseract-ocr-spa libtesseract-dev
+          version: 1.0
       
       - name: 📦 Install System Dependencies (Tesseract)
         run: |
-          echo "📦 Instalando Tesseract OCR..."
-          sudo apt-get update
-          sudo apt-get install -y \
-            tesseract-ocr \
-            tesseract-ocr-spa \
-            libtesseract-dev
+          echo "📦 Verificando Tesseract OCR..."
+          if ! command -v tesseract &> /dev/null; then
+            echo "Instalando Tesseract..."
+            sudo apt-get update
+            sudo apt-get install -y \
+              tesseract-ocr \
+              tesseract-ocr-spa \
+              libtesseract-dev
+          else
+            echo "✅ Tesseract ya instalado (desde cache)"
+          fi
           
           # Verificar instalación
           tesseract --version
-          echo "✅ Tesseract instalado correctamente"
+          echo "✅ Tesseract listo"
       
       - name: 📦 Install Python Dependencies
         run: |
