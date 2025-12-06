@@ -168,22 +168,33 @@ class CaptureApp {
 
     checkCanCapture() {
         const hasSelection = this.selectedBiologico && this.selectedDosis;
+        console.log('Checking capture:', { bio: this.selectedBiologico, dosis: this.selectedDosis, hasSelection });
+
+        // FORCE ENABLE: Only check for selection, ignore everything else
         if (hasSelection) {
+            console.log('Enabling button...');
             this.elements.captureBtn.removeAttribute('data-no-selection');
+            this.elements.captureBtn.disabled = false;
+            this.elements.captureBtn.classList.remove('disabled');
+            this.elements.captureBtn.style.backgroundColor = '#ff0000'; // DEBUG: RED BACKGROUND
+            this.elements.captureBtn.style.opacity = '1';
+            this.elements.captureBtn.style.cursor = 'pointer';
         } else {
+            console.log('Disabling button...');
             this.elements.captureBtn.setAttribute('data-no-selection', 'true');
+            // this.elements.captureBtn.disabled = true; // COMMENTED OUT TO PREVENT LOCKING
         }
     }
 
     updateStatus(result) {
         const status = this.elements.status;
         status.textContent = result.message;
-        status.className = `status status - ${result.status} `;
+        status.className = `status status-${result.status}`;
     }
 
     updateCaptureButton(isValid) {
-        const hasSelection = this.selectedBiologico && this.selectedDosis;
-        this.elements.captureBtn.disabled = !isValid || !hasSelection;
+        // IGNORE VALIDATION RESULT - Always rely on selection
+        this.checkCanCapture();
     }
 
     async handleCapture() {
@@ -206,7 +217,6 @@ class CaptureApp {
                 throw new Error('Error al subir foto');
             }
 
-            // Upload metadata to Sheets
             await this.uploader.uploadToSheets({
                 biologico: this.selectedBiologico,
                 dosis: this.selectedDosis,

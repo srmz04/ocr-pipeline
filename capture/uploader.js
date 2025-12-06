@@ -84,6 +84,7 @@ class DriveUploader {
             return {
                 success: true,
                 fileId: fileId,
+                filename: filename, // Return generated filename
                 url: `https://drive.google.com/file/d/${fileId}/view`
             };
 
@@ -106,35 +107,30 @@ class DriveUploader {
 
             // Prepare row data
             const now = new Date();
+            const safeFilename = data.filename || `captura_${now.getTime()}.jpg`;
+
             const row = [
-                now.toISOString(),                    // FECHA_HORA_CAPTURA
-                'WEB_CAPTURE',                        // TIPO_DOCUMENTO
-                '',                                   // NOMBRE (lo llenará OCR)
-                '',                                   // APELLIDO_PATERNO
-                '',                                   // APELLIDO_MATERNO
-                '',                                   // NOMBRE_COMPLETO
-                '',                                   // CURP
-                '',                                   // FECHA_NACIMIENTO
-                '',                                   // EDAD
-                '',                                   // SEXO
-                '',                                   // ESTADO
-                '',                                   // MUNICIPIO
-                '',                                   // CLAVE_ELECTOR
-                data.biologico,                       // BIOLOGICO
-                data.dosis,                           // DOSIS
-                '',                                   // CONFIANZA_OCR (lo llenará OCR)
-                '',                                   // TEXTO_EXTRAIDO
-                'PENDIENTE_OCR',                      // STATUS
-                data.fileUrl,                         // LINK_FOTO
-                data.operador || 'web',               // OPERADOR
-                data.observaciones || ''              // OBSERVACIONES
+                now.toISOString(),                    // 0: FECHA_HORA
+                safeFilename,                         // 1: NOMBRE_ARCHIVO
+                '',                                   // 2: CURP
+                '',                                   // 3: CONFIANZA
+                '',                                   // 4: NOMBRE
+                '',                                   // 5: SEXO
+                '',                                   // 6: TEXTO
+                'PENDIENTE_OCR',                      // 7: STATUS
+                data.fileUrl || '',                   // 8: LINK
+                data.biologico || '',                 // 9: BIOLOGICO
+                data.dosis || ''                      // 10: DOSIS
             ];
 
-            // Append to sheet
+            console.log('📝 Appending row:', row);
+
+            // Append to sheet - Anchor to Column A to prevent staircase
             const response = await gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: CONFIG.SPREADSHEET_ID,
-                range: 'REGISTRO_MASTER!A:U',
+                range: 'REGISTRO_MASTER!A:A',  // CRITICAL FIX: Anchor to Col A
                 valueInputOption: 'USER_ENTERED',
+                insertDataOption: 'INSERT_ROWS',
                 resource: {
                     values: [row]
                 }

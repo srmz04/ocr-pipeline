@@ -266,11 +266,14 @@ body {
     transform: translateX(-50%) scale(0.95);
 }
 
-.capture-button:disabled {
-    background: var(--border);
-    color: var(--text-secondary);
+.capture-button:disabled,
+.capture-button[data-no-selection="true"] {
+    opacity: 0.5;
+    background: #ccc;
     cursor: not-allowed;
+    transform: none;
     box-shadow: none;
+    /* pointer-events: none;  <-- REMOVED TO ALLOW CLICK DEBUGGING */
 }
 
 .capture-icon {

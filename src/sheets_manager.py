@@ -32,6 +32,14 @@ class SheetsManager:
         self.registro_sheet = None
         self.dashboard_sheet = None
         self.spreadsheet_name = spreadsheet_name
+
+    @staticmethod
+    def clean_text_for_sheet(text):
+        """Limpia texto para evitar romper formato CSV/Sheets"""
+        if not isinstance(text, str):
+            return text
+        # Reemplazar newlines y tabs con espacios
+        return text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip()
         
     def initialize_spreadsheet(self, spreadsheet_name=None):
         """
@@ -94,71 +102,60 @@ class SheetsManager:
     def update_entry_by_filename(self, filename, data):
         """
         Actualiza una fila existente buscando por nombre de archivo.
-        Si no existe, crea una nueva.
+        Si no existe, NO crea una nueva (el frontend ya la creó).
         
         Args:
             filename (str): Nombre del archivo a buscar
-            data (dict): Datos a actualizar
+            data (dict): Datos a actualizar (curp, confidence, nombre, sexo, raw_text, status)
         
         Returns:
             bool: True si tuvo éxito
         """
         if not self.registro_sheet:
+            logger.error("❌ Hoja de registro no inicializada")
             return False
             
         try:
-            # Buscar la celda que contiene el nombre del archivo (columna 2)
+            # Buscar la celda que contiene el nombre del archivo (columna B = 2)
+            logger.info(f"🔍 Buscando archivo: {filename}")
             cell = self.registro_sheet.find(filename, in_column=2)
             
-            if cell:
-                # Fila encontrada, actualizar
-                row_idx = cell.row
-                logger.info(f"📝 Actualizando fila {row_idx} para {filename}")
+            if not cell:
+                logger.warning(f"⚠️ Archivo {filename} NO encontrado. El frontend debió haberlo creado.")
+                return False
+            
+            row_idx = cell.row
+            logger.info(f"✅ Archivo encontrado en fila {row_idx}. Actualizando celdas...")
+            
+            # Actualizar celda por celda de forma simple y directa
+            # Columnas: A=Fecha, B=Archivo, C=CURP, D=Confianza, E=Nombre, F=Sexo, G=Texto, H=Status
+            if 'curp' in data and data['curp']:
+                self.registro_sheet.update_cell(row_idx, 3, data['curp'])
+                logger.info(f"   C{row_idx} = CURP: {data['curp']}")
+            
+            if 'confidence' in data:
+                self.registro_sheet.update_cell(row_idx, 4, str(data['confidence']))
                 
-                # Mapeo de columnas (1-based)
-                # 1: FECHA_HORA, 2: NOMBRE_ARCHIVO, 3: CURP, 4: CONFIANZA, 
-                # 5: NOMBRE, 6: SEXO, 7: TEXTO_CRUDO, 8: STATUS, 9: LINK
+            if 'nombre' in data and data['nombre']:
+                self.registro_sheet.update_cell(row_idx, 5, data['nombre'])
                 
-                updates = []
-                if 'curp' in data:
-                    updates.append({'range': f'C{row_idx}', 'values': [[data['curp']]]})
-                if 'confidence' in data:
-                    updates.append({'range': f'D{row_idx}', 'values': [[data['confidence']]]})
-                if 'nombre' in data:
-                    updates.append({'range': f'E{row_idx}', 'values': [[data['nombre']]]})
-                if 'sexo' in data:
-                    updates.append({'range': f'F{row_idx}', 'values': [[data['sexo']]]})
-                if 'raw_text' in data:
-                    # Truncar texto si es muy largo
-                    text = data['raw_text'][:49000] 
-                    updates.append({'range': f'G{row_idx}', 'values': [[text]]})
-                if 'status' in data:
-                    updates.append({'range': f'H{row_idx}', 'values': [[data['status']]]})
-                    
-                self.spreadsheet.batch_update({'requests': [{
-                    'updateCells': {
-                        'start': {'sheetId': self.registro_sheet.id, 'rowIndex': row_idx-1, 'columnIndex': 2}, # Col C (index 2)
-                        'rows': [{'values': [{'userEnteredValue': {'stringValue': data.get('curp', '')}}]}],
-                        'fields': 'userEnteredValue'
-                    }
-                }]})
+            if 'sexo' in data and data['sexo']:
+                self.registro_sheet.update_cell(row_idx, 6, data['sexo'])
                 
-                # Actualización simple celda por celda para evitar complejidad de batch
-                if 'curp' in data: self.registro_sheet.update_cell(row_idx, 3, data['curp'])
-                if 'confidence' in data: self.registro_sheet.update_cell(row_idx, 4, data['confidence'])
-                if 'nombre' in data: self.registro_sheet.update_cell(row_idx, 5, data['nombre'])
-                if 'sexo' in data: self.registro_sheet.update_cell(row_idx, 6, data['sexo'])
-                if 'raw_text' in data: self.registro_sheet.update_cell(row_idx, 7, data['raw_text'][:49000])
-                if 'status' in data: self.registro_sheet.update_cell(row_idx, 8, data['status'])
+            if 'raw_text' in data:
+                clean_text = SheetsManager.clean_text_for_sheet(data['raw_text'])[:49000]
+                self.registro_sheet.update_cell(row_idx, 7, clean_text)
                 
-                return True
-            else:
-                # No encontrado, agregar nueva fila
-                logger.warning(f"⚠️ Archivo {filename} no encontrado en hoja, creando nueva fila")
-                return self.add_registro(data)
+            if 'status' in data:
+                self.registro_sheet.update_cell(row_idx, 8, data['status'])
+            
+            logger.info(f"✅ Fila {row_idx} actualizada exitosamente")
+            return True
                 
         except Exception as e:
             logger.error(f"❌ Error al actualizar registro: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def add_registro(self, data):
@@ -184,9 +181,11 @@ class SheetsManager:
                 data.get('confianza_ocr', 0.0),
                 data.get('nombre_extraido', ''),
                 data.get('sexo_extraido', ''),
-                data.get('texto_crudo', ''),
+                SheetsManager.clean_text_for_sheet(data.get('texto_crudo', '')),
                 data.get('status', 'PROCESADO'),
-                data.get('link_foto', '')
+                data.get('link_foto', ''),
+                data.get('biologico', ''),
+                data.get('dosis', '')
             ]
             
             self.registro_sheet.append_row(row)

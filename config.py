@@ -29,7 +29,9 @@ REGISTRO_HEADERS = [
     "SEXO_EXTRAIDO",
     "TEXTO_CRUDO",
     "STATUS",
-    "LINK_FOTO"
+    "LINK_FOTO",
+    "BIOLOGICO",
+    "DOSIS"
 ]
 
 # Headers para el dashboard

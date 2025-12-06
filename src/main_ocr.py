@@ -296,7 +296,7 @@ class OCRPipeline:
                         'confianza_ocr': f"{result['confidence']:.2f}",
                         'nombre_extraido': result.get('nombre', ''),
                         'sexo_extraido': result.get('sexo', ''),
-                        'texto_crudo': result['raw_text'],
+                        'texto_crudo': result['raw_text'].replace('\n', ' ').replace('\r', ' '), # Sanitize text
                         'status': result['status'],
                         'link_foto': self.drive_manager.get_file_link(result['file_id'])
                     }
