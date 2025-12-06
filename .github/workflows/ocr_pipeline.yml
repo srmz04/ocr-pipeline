@@ -1,7 +1,7 @@
 name: OCR Pipeline - Procesamiento Automático
 
 on:
-  workflow_dispatch:  # Ejecución manual bajo demandass-images:
+  workflow_dispatch:  # Solo ejecución manual
 
 jobs:
   process-images:
