@@ -116,9 +116,18 @@ class SheetsManager:
             return False
             
         try:
+            # Strip common Drive copy prefixes to match original filename
+            search_filename = filename
+            prefixes_to_strip = ['Copia de Copia de ', 'Copia de ', 'Copy of Copy of ', 'Copy of ']
+            for prefix in prefixes_to_strip:
+                if filename.startswith(prefix):
+                    search_filename = filename[len(prefix):]
+                    logger.info(f"   Stripped prefix: '{filename}' -> '{search_filename}'")
+                    break
+            
             # Buscar la celda que contiene el nombre del archivo (columna B = 2)
-            logger.info(f"🔍 Buscando archivo: {filename}")
-            cell = self.registro_sheet.find(filename, in_column=2)
+            logger.info(f"🔍 Buscando archivo: {search_filename}")
+            cell = self.registro_sheet.find(search_filename, in_column=2)
             
             if not cell:
                 logger.warning(f"⚠️ Archivo {filename} NO encontrado. El frontend debió haberlo creado.")
