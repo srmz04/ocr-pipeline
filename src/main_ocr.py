@@ -152,15 +152,16 @@ class OCRPipeline:
                 result['status'] = f'ERROR_VALIDACION: {validation_msg}'
                 return result
             
-            # Preprocesar imagen
+            # Preprocesar imagen (legacy - para compatibilidad)
             logger.info("🔧 Preprocesando imagen...")
             processed_image = preprocess_image(temp_path)
             
-            # Extraer texto con OCR híbrido
-            logger.info("🔍 Extrayendo texto con OCR...")
+            # Extraer texto con OCR multi-estrategia
+            logger.info("🔍 Extrayendo texto con OCR multi-estrategia...")
             raw_text, ocr_confidence, ocr_method = extract_text_hybrid(
                 processed_image,
-                use_easyocr_fallback=USE_EASYOCR_FALLBACK
+                use_easyocr_fallback=USE_EASYOCR_FALLBACK,
+                image_path=temp_path  # Pass original path for multi-pass
             )
             
             result['raw_text'] = raw_text[:500]  # Limitar a 500 caracteres

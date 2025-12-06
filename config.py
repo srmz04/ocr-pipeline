@@ -42,7 +42,11 @@ DASHBOARD_HEADERS = [
 ]
 
 # Configuración de OCR
-TESSERACT_CONFIG = '--oem 3 --psm 6 -l spa'
+# psm 3 = Fully automatic page segmentation (best for documents)
+# psm 6 = Assume uniform block of text
+# psm 11 = Sparse text, find as much text as possible
+TESSERACT_CONFIG = '--oem 3 --psm 3 -l spa'
+TESSERACT_CONFIG_SPARSE = '--oem 3 --psm 11 -l spa'  # For sparse text (INE, cards)
 TESSERACT_LANG = 'spa'
 
 # Configuración de EasyOCR
