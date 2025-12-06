@@ -169,16 +169,18 @@ class OCRPipeline:
             logger.info(f"📝 Texto extraído ({ocr_method}): {len(raw_text)} caracteres")
             logger.info(f"📊 Confianza OCR: {ocr_confidence:.2f}")
             
-            # Extraer CURP del texto
-            logger.info("🔎 Buscando CURP...")
-            curps_found = extract_curp_from_text(raw_text)
+            # Extraer CURP del texto usando RobustExtractor
+            logger.info("🔎 Buscando CURP con extractor robusto...")
+            curp_result = RobustExtractor.find_curp_fuzzy(raw_text)
             
-            if not curps_found:
+            if not curp_result:
                 logger.warning("⚠️ No se encontró CURP en el texto")
                 result['status'] = 'SIN_CURP'
                 result['destination_folder'] = FOLDER_REVISION_NAME
                 result['curp'] = 'X'
                 return result
+            
+            curps_found = [curp_result]  # Convert to list for compatibility
             
             # Validar CURP(s) encontrada(s)
             best_curp = None
