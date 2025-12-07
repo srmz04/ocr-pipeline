@@ -130,9 +130,15 @@ class SheetsManager:
             cell = self.registro_sheet.find(search_filename, in_column=2)
             
             if not cell:
-                # NO ENCONTRADO - Crear nueva fila
+                # NO ENCONTRADO - Crear nueva fila usando el método correcto
                 logger.info(f"📝 Archivo {filename} no existe, creando nueva entrada...")
                 from datetime import datetime
+                
+                # Encontrar la última fila con datos en columna A (más confiable)
+                col_a_values = self.registro_sheet.col_values(1)  # Columna A
+                next_row = len(col_a_values) + 1
+                
+                logger.info(f"   Insertando en fila {next_row}")
                 
                 # Crear fila completa con todos los datos
                 # Columnas: A=Fecha, B=Archivo, C=CURP, D=Confianza, E=Nombre, F=Sexo, G=Texto, H=Status, I=Link, J=Biologico, K=Dosis
@@ -150,8 +156,10 @@ class SheetsManager:
                     ''                                             # K: Dosis
                 ]
                 
-                self.registro_sheet.append_row(new_row, value_input_option='USER_ENTERED')
-                logger.info(f"✅ Nueva fila creada para {search_filename}")
+                # Usar update con rango explícito en lugar de append_row
+                range_str = f'A{next_row}:K{next_row}'
+                self.registro_sheet.update(range_str, [new_row], value_input_option='USER_ENTERED')
+                logger.info(f"✅ Nueva fila creada en {range_str} para {search_filename}")
                 return True
             
             # ENCONTRADO - Actualizar fila existente
