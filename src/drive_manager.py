@@ -143,6 +143,46 @@ class DriveManager:
             logger.error(f"❌ Error al listar archivos en '{folder_name}': {e}")
             return []
     
+    def find_file_by_name(self, filename, folder_name):
+        """
+        Busca un archivo específico por nombre en una carpeta.
+        
+        Args:
+            filename (str): Nombre exacto del archivo a buscar
+            folder_name (str): Nombre de la carpeta donde buscar
+        
+        Returns:
+            dict: Info del archivo si se encuentra, None si no
+        """
+        folder_key = folder_name.lower()
+        folder_id = self.folder_ids.get(folder_key)
+        
+        if not folder_id:
+            logger.error(f"❌ Carpeta '{folder_name}' no inicializada")
+            return None
+        
+        try:
+            # Escapar comillas simples en el nombre del archivo
+            escaped_filename = filename.replace("'", "\\'")
+            query = f"name='{escaped_filename}' and '{folder_id}' in parents and trashed=false"
+            
+            results = self.service.files().list(
+                q=query,
+                pageSize=1,
+                fields='files(id, name, mimeType, createdTime, size)'
+            ).execute()
+            
+            files = results.get('files', [])
+            
+            if files:
+                return files[0]
+            
+            return None
+            
+        except HttpError as e:
+            logger.error(f"❌ Error al buscar archivo '{filename}' en '{folder_name}': {e}")
+            return None
+    
     def download_file(self, file_id, destination_path):
         """
         Descarga un archivo de Drive.

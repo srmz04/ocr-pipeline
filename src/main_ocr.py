@@ -251,38 +251,58 @@ class OCRPipeline:
             return False
         
         try:
-            # Listar archivos en carpeta ENTRADA
-            logger.info(f"\n📂 Buscando archivos en carpeta '{FOLDER_ENTRADA_NAME}'...")
-            files = self.drive_manager.list_files_in_folder(
-                FOLDER_ENTRADA_NAME,
-                max_files=MAX_FILES_PER_RUN
-            )
+            # NUEVO ENFOQUE: Procesar basándose en el Sheet, no en Drive
+            logger.info(f"\n📊 Leyendo archivos pendientes desde Sheet...")
+            pending_files = self.sheets_manager.get_pending_files()
             
-            # También procesar archivos en carpeta REVISIÓN (segunda pasada)
-            logger.info(f"\n📂 Buscando archivos en carpeta '{FOLDER_REVISION_NAME}' para reprocesar...")
-            revision_files = self.drive_manager.list_files_in_folder(
-                FOLDER_REVISION_NAME,
-                max_files=MAX_FILES_PER_RUN
-            )
-            
-            if revision_files:
-                logger.info(f"📋 {len(revision_files)} archivos en REVISIÓN para reprocesar")
-                files.extend(revision_files)
-            
-            if not files:
-                logger.info("ℹ️ No hay archivos para procesar")
+            if not pending_files:
+                logger.info("ℹ️ No hay archivos PENDIENTE_OCR para procesar")
                 return True
             
-            logger.info(f"📋 {len(files)} archivos totales para procesar")
+            logger.info(f"📋 {len(pending_files)} archivos con estado PENDIENTE_OCR")
+            
+            # Para cada archivo pendiente, buscar en Drive
+            files_to_process = []
+            for filename in pending_files:
+                logger.info(f"🔍 Buscando '{filename}' en Drive...")
+                
+                # Buscar primero en ENTRADAS
+                file_in_entradas = self.drive_manager.find_file_by_name(filename, FOLDER_ENTRADA_NAME)
+                if file_in_entradas:
+                    files_to_process.append(file_in_entradas)
+                    logger.info(f"   ✅ Encontrado en ENTRADAS")
+                    continue
+                
+                # Buscar en REVISIÓN
+                file_in_revision = self.drive_manager.find_file_by_name(filename, FOLDER_REVISION_NAME)
+                if file_in_revision:
+                    files_to_process.append(file_in_revision)
+                    logger.info(f"   ✅ Encontrado en REVISIÓN")
+                    continue
+                    
+                # Buscar en PROCESADAS (por si fue movido)
+                file_in_procesadas = self.drive_manager.find_file_by_name(filename, FOLDER_PROCESADAS_NAME)
+                if file_in_procesadas:
+                    files_to_process.append(file_in_procesadas)
+                    logger.info(f"   ✅ Encontrado en PROCESADAS")
+                    continue
+                
+                logger.warning(f"   ⚠️ Archivo '{filename}' no encontrado en Drive")
+            
+            if not files_to_process:
+                logger.info("ℹ️ No se encontraron archivos en Drive para procesar")
+                return True
+            
+            logger.info(f"📋 {len(files_to_process)} archivos encontrados en Drive para procesar")
             
             # Crear directorio temporal
             with tempfile.TemporaryDirectory() as temp_dir:
                 logger.info(f"📁 Directorio temporal: {temp_dir}")
                 
                 # Procesar cada archivo
-                for i, file_info in enumerate(files, 1):
+                for i, file_info in enumerate(files_to_process, 1):
                     logger.info(f"\n{'#' * 80}")
-                    logger.info(f"Archivo {i}/{len(files)}")
+                    logger.info(f"Archivo {i}/{len(files_to_process)}")
                     logger.info(f"{'#' * 80}")
                     
                     # Procesar imagen

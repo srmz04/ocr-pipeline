@@ -130,37 +130,8 @@ class SheetsManager:
             cell = self.registro_sheet.find(search_filename, in_column=2)
             
             if not cell:
-                # NO ENCONTRADO - Crear nueva fila usando el método correcto
-                logger.info(f"📝 Archivo {filename} no existe, creando nueva entrada...")
-                from datetime import datetime
-                
-                # Encontrar la última fila con datos en columna A (más confiable)
-                col_a_values = self.registro_sheet.col_values(1)  # Columna A
-                next_row = len(col_a_values) + 1
-                
-                logger.info(f"   Insertando en fila {next_row}")
-                
-                # Crear fila completa con todos los datos
-                # Columnas: A=Fecha, B=Archivo, C=CURP, D=Confianza, E=Nombre, F=Sexo, G=Texto, H=Status, I=Link, J=Biologico, K=Dosis
-                new_row = [
-                    datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),  # A: Fecha
-                    search_filename,                               # B: Archivo
-                    data.get('curp', ''),                          # C: CURP
-                    str(data.get('confidence', '')),               # D: Confianza
-                    data.get('nombre', ''),                        # E: Nombre
-                    data.get('sexo', ''),                          # F: Sexo
-                    SheetsManager.clean_text_for_sheet(data.get('raw_text', ''))[:49000],  # G: Texto
-                    data.get('status', 'PROCESADO'),               # H: Status
-                    '',                                            # I: Link
-                    '',                                            # J: Biologico
-                    ''                                             # K: Dosis
-                ]
-                
-                # Usar update con rango explícito en lugar de append_row
-                range_str = f'A{next_row}:K{next_row}'
-                self.registro_sheet.update(range_str, [new_row], value_input_option='USER_ENTERED')
-                logger.info(f"✅ Nueva fila creada en {range_str} para {search_filename}")
-                return True
+                logger.warning(f"⚠️ Archivo {filename} NO encontrado en Sheet (esto no debería pasar)")
+                return False
             
             # ENCONTRADO - Actualizar fila existente
             row_idx = cell.row
@@ -234,6 +205,41 @@ class SheetsManager:
         except Exception as e:
             logger.error(f"❌ Error al agregar registro: {e}")
             return False
+    
+    def get_pending_files(self):
+        """
+        Obtiene lista de archivos con estado PENDIENTE_OCR.
+        
+        Returns:
+            list: Lista de nombres de archivo que tienen status PENDIENTE_OCR
+        """
+        if not self.registro_sheet:
+            logger.error("❌ Hoja de registro no inicializada")
+            return []
+        
+        try:
+            # Leer todas las filas (columnas A-H)
+            all_data = self.registro_sheet.get_all_values()
+            
+            if len(all_data) <= 1:  # Solo headers o vacío
+                return []
+            
+            pending_files = []
+            # Saltar header row
+            for row in all_data[1:]:
+                if len(row) >= 8:  # Asegurar que hay al menos 8 columnas
+                    filename = row[1]  # Columna B (index 1)
+                    status = row[7]    # Columna H (index 7)
+                    
+                    if status == 'PENDIENTE_OCR' and filename:
+                        pending_files.append(filename)
+                        logger.debug(f"   Pendiente: {filename}")
+            
+            return pending_files
+            
+        except Exception as e:
+            logger.error(f"❌ Error al obtener archivos pendientes: {e}")
+            return []
     
     def update_dashboard(self, metrics):
         """
