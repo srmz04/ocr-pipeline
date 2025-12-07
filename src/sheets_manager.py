@@ -1,327 +1,247 @@
 """
-Módulo de gestión de Google Sheets
+INESheetsManager
+Gestor profesional para integración Google Sheets <-> OCR
 """
 import logging
-from datetime import datetime
 import gspread
-from gspread.exceptions import SpreadsheetNotFound, WorksheetNotFound
-
-from config import (
-    SHEET_NAME,
-    DASHBOARD_SHEET_NAME,
-    REGISTRO_HEADERS,
-    DASHBOARD_HEADERS
-)
+import cv2
+import os
+import tempfile
+from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from src.ine_processor import INEOCRProcessor
 
 logger = logging.getLogger(__name__)
 
-
-class SheetsManager:
-    """Gestor de operaciones con Google Sheets"""
+class INESheetsManager:
+    """
+    Gestor que:
+    1. Lee Sheet con status 'PENDIENTE_OCR'
+    2. Descarga imagen de Drive
+    3. Corre OCR inteligente
+    4. Actualiza Sheet con resultados + logs
+    """
     
-    def __init__(self, client, spreadsheet_name=None):
+    def __init__(self, credentials_path: str, sheet_name: str):
         """
-        Inicializa el gestor de Sheets.
-        
         Args:
-            client: Cliente de gspread
-            spreadsheet_name (str, optional): Nombre del spreadsheet
+            credentials_path: Path a service account JSON
+            sheet_name: Nombre del Sheet (ej: "INE_Registros")
         """
-        self.client = client
-        self.spreadsheet = None
-        self.registro_sheet = None
-        self.dashboard_sheet = None
-        self.spreadsheet_name = spreadsheet_name
-
-    @staticmethod
-    def clean_text_for_sheet(text):
-        """Limpia texto para evitar romper formato CSV/Sheets"""
-        if not isinstance(text, str):
-            return text
-        # Reemplazar newlines y tabs con espacios
-        return text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip()
+        self.credentials_path = credentials_path
         
-    def initialize_spreadsheet(self, spreadsheet_name=None):
-        """
-        Inicializa la conexión al spreadsheet.
-        
-        Args:
-            spreadsheet_name (str, optional): Nombre del spreadsheet
-        
-        Returns:
-            bool: True si la inicialización fue exitosa
-        """
-        if spreadsheet_name:
-            self.spreadsheet_name = spreadsheet_name
-        
-        if not self.spreadsheet_name:
-            logger.error("❌ Nombre de spreadsheet no especificado")
-            return False
+        # Autenticar con Google
+        scope = ['https://www.googleapis.com/auth/spreadsheets',
+                 'https://www.googleapis.com/auth/drive']
         
         try:
-            self.spreadsheet = self.client.open(self.spreadsheet_name)
-            logger.info(f"✅ Spreadsheet '{self.spreadsheet_name}' abierto")
+            credentials = service_account.Credentials.from_service_account_file(
+                credentials_path, scopes=scope
+            )
             
-            # Inicializar hoja de registro
-            try:
-                self.registro_sheet = self.spreadsheet.worksheet(SHEET_NAME)
-                logger.info(f"✅ Hoja '{SHEET_NAME}' encontrada")
-            except WorksheetNotFound:
-                logger.warning(f"⚠️ Hoja '{SHEET_NAME}' no encontrada, creando...")
-                self.registro_sheet = self.spreadsheet.add_worksheet(
-                    title=SHEET_NAME,
-                    rows=1000,
-                    cols=len(REGISTRO_HEADERS)
-                )
-                self.registro_sheet.append_row(REGISTRO_HEADERS)
-                logger.info(f"✅ Hoja '{SHEET_NAME}' creada")
+            self.gc = gspread.authorize(credentials)
+            self.sheet = self.gc.open(sheet_name).sheet1
+            self.drive_service = build('drive', 'v3', credentials=credentials)
             
-            # Inicializar hoja de dashboard
-            try:
-                self.dashboard_sheet = self.spreadsheet.worksheet(DASHBOARD_SHEET_NAME)
-                logger.info(f"✅ Hoja '{DASHBOARD_SHEET_NAME}' encontrada")
-            except WorksheetNotFound:
-                logger.warning(f"⚠️ Hoja '{DASHBOARD_SHEET_NAME}' no encontrada, creando...")
-                self.dashboard_sheet = self.spreadsheet.add_worksheet(
-                    title=DASHBOARD_SHEET_NAME,
-                    rows=100,
-                    cols=len(DASHBOARD_HEADERS)
-                )
-                self.dashboard_sheet.append_row(DASHBOARD_HEADERS)
-                logger.info(f"✅ Hoja '{DASHBOARD_SHEET_NAME}' creada")
+            # Inicializar OCR processor
+            self.ocr = INEOCRProcessor(debug=False)
             
-            return True
-            
-        except SpreadsheetNotFound:
-            logger.error(f"❌ Spreadsheet '{self.spreadsheet_name}' no encontrado")
-            return False
+            logger.info(f"✓ SheetsManager initialized for '{sheet_name}'")
         except Exception as e:
-            logger.error(f"❌ Error al inicializar spreadsheet: {e}")
-            return False
-    
-    def update_entry_by_filename(self, filename, data):
-        """
-        Actualiza una fila existente buscando por nombre de archivo.
-        Si no existe, CREA una nueva fila con todos los datos.
-        
-        Args:
-            filename (str): Nombre del archivo a buscar
-            data (dict): Datos a actualizar (curp, confidence, nombre, sexo, raw_text, status)
-        
-        Returns:
-            bool: True si tuvo éxito
-        """
-        if not self.registro_sheet:
-            logger.error("❌ Hoja de registro no inicializada")
-            return False
-            
-        try:
-            # Strip common Drive copy prefixes to match original filename
-            search_filename = filename
-            prefixes_to_strip = ['Copia de Copia de ', 'Copia de ', 'Copy of Copy of ', 'Copy of ']
-            for prefix in prefixes_to_strip:
-                if filename.startswith(prefix):
-                    search_filename = filename[len(prefix):]
-                    logger.info(f"   Stripped prefix: '{filename}' -> '{search_filename}'")
-                    break
-            
-            # Buscar la celda que contiene el nombre del archivo (columna B = 2)
-            logger.info(f"🔍 Buscando archivo: {search_filename}")
-            cell = self.registro_sheet.find(search_filename, in_column=2)
-            
-            if not cell:
-                logger.warning(f"⚠️ Archivo {filename} NO encontrado en Sheet (esto no debería pasar)")
-                return False
-            
-            # ENCONTRADO - Actualizar fila existente
-            row_idx = cell.row
-            logger.info(f"✅ Archivo encontrado en fila {row_idx}. Actualizando celdas...")
-            
-            # Actualizar celda por celda de forma simple y directa
-            # Columnas: A=Fecha, B=Archivo, C=CURP, D=Confianza, E=Nombre, F=Sexo, G=Texto, H=Status
-            if 'curp' in data and data['curp']:
-                self.registro_sheet.update_cell(row_idx, 3, data['curp'])
-                logger.info(f"   C{row_idx} = CURP: {data['curp']}")
-            
-            if 'confidence' in data:
-                self.registro_sheet.update_cell(row_idx, 4, str(data['confidence']))
-                
-            if 'nombre' in data and data['nombre']:
-                self.registro_sheet.update_cell(row_idx, 5, data['nombre'])
-                
-            if 'sexo' in data and data['sexo']:
-                self.registro_sheet.update_cell(row_idx, 6, data['sexo'])
-                
-            if 'raw_text' in data:
-                clean_text = SheetsManager.clean_text_for_sheet(data['raw_text'])[:49000]
-                self.registro_sheet.update_cell(row_idx, 7, clean_text)
-                
-            if 'status' in data:
-                self.registro_sheet.update_cell(row_idx, 8, data['status'])
+            logger.error(f"❌ Error initializing SheetsManager: {e}")
+            raise
 
-            # Nuevas columnas de diagnóstico
-            if 'ocr_strategy' in data:
-                self.registro_sheet.update_cell(row_idx, 12, data['ocr_strategy'])
-                
-            if 'ocr_timestamp' in data:
-                self.registro_sheet.update_cell(row_idx, 13, data['ocr_timestamp'])
-                
-            if 'ocr_issues' in data:
-                self.registro_sheet.update_cell(row_idx, 14, data['ocr_issues'])
-            
-            logger.info(f"✅ Fila {row_idx} actualizada exitosamente")
-            return True
-                
-        except Exception as e:
-            logger.error(f"❌ Error al actualizar registro: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    def add_registro(self, data):
+    def process_pending_rows(self):
         """
-        Agrega un registro a la hoja de datos.
-        
-        Args:
-            data (dict): Diccionario con los datos del registro
-        
-        Returns:
-            bool: True si el registro fue agregado exitosamente
+        Main loop: procesar TODAS las filas con status 'PENDIENTE_OCR'
         """
-        if not self.registro_sheet:
-            logger.error("❌ Hoja de registro no inicializada")
-            return False
+        logger.info("🔍 Scanning for pending rows...")
         
         try:
-            # Preparar fila según headers
-            row = [
-                data.get('fecha_hora', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                data.get('nombre_archivo', ''),
-                data.get('curp_detectada', 'X'),
-                data.get('confianza_ocr', 0.0),
-                data.get('nombre_extraido', ''),
-                data.get('sexo_extraido', ''),
-                SheetsManager.clean_text_for_sheet(data.get('texto_crudo', '')),
-                data.get('status', 'PROCESADO'),
-                data.get('link_foto', ''),
-                data.get('biologico', ''),
-                data.get('dosis', '')
-            ]
+            # Leer todas las filas
+            rows = self.sheet.get_all_records()
             
-            self.registro_sheet.append_row(row)
-            logger.debug(f"✅ Registro agregado: {data.get('nombre_archivo')}")
-            return True
+            pending_rows = []
+            for idx, row in enumerate(rows, start=2):  # Start at 2 (row 1 es headers)
+                status = str(row.get('STATUS', '')).strip().upper() # Usar STATUS (header real)
+                if status == 'PENDIENTE_OCR':
+                    pending_rows.append((idx, row))
             
-        except Exception as e:
-            logger.error(f"❌ Error al agregar registro: {e}")
-            return False
-    
-    def get_pending_files(self):
-        """
-        Obtiene lista de archivos con estado PENDIENTE_OCR.
-        
-        Returns:
-            list: Lista de nombres de archivo que tienen status PENDIENTE_OCR
-        """
-        if not self.registro_sheet:
-            logger.error("❌ Hoja de registro no inicializada")
-            return []
-        
-        try:
-            # Leer todas las filas (columnas A-H)
-            all_data = self.registro_sheet.get_all_values()
+            logger.info(f"Found {len(pending_rows)} pending rows")
             
-            if len(all_data) <= 1:  # Solo headers o vacío
-                return []
+            if not pending_rows:
+                logger.info("No pending rows. Exiting.")
+                return
             
-            pending_files = []
-            # Saltar header row
-            for row in all_data[1:]:
-                if len(row) >= 8:  # Asegurar que hay al menos 8 columnas
-                    filename = row[1]  # Columna B (index 1)
-                    status = row[7]    # Columna H (index 7)
+            # Procesar cada uno
+            for row_num, row_data in pending_rows:
+                try:
+                    self._process_single_row(row_num, row_data)
+                except Exception as e:
+                    logger.error(f"ERROR processing row {row_num}: {e}")
+                    self._update_row_status(row_num, 'ERROR', str(e))
                     
-                    if status == 'PENDIENTE_OCR' and filename:
-                        pending_files.append(filename)
-                        logger.debug(f"   Pendiente: {filename}")
+        except Exception as e:
+            logger.error(f"❌ Error in process_pending_rows: {e}")
+
+    def _process_single_row(self, row_num: int, row_data: dict):
+        """
+        Procesar una sola fila:
+        1. Obtener image_path o drive_file_id
+        2. Cargar imagen
+        3. Correr OCR
+        4. Actualizar Sheet
+        """
+        logger.info(f"\n[Row {row_num}] Processing...")
+        
+        # Obtener nombre de archivo (que usaremos para buscar en Drive si no tenemos ID directo)
+        filename = row_data.get('NOMBRE_ARCHIVO')
+        
+        if not filename:
+            self._update_row_status(row_num, 'ERROR', 'No filename found')
+            return
             
-            return pending_files
+        # Descargar desde Drive (buscando por nombre)
+        image_path = self._download_file_by_name(filename)
+        
+        if not image_path:
+             self._update_row_status(row_num, 'ERROR', f'File not found in Drive: {filename}')
+             return
+
+        # Cargar imagen
+        try:
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError("Could not load image")
+        except Exception as e:
+            self._update_row_status(row_num, 'ERROR', f'Image load failed: {e}')
+            return
+        
+        # Correr OCR
+        logger.info(f"  → Running OCR...")
+        try:
+            # Procesamiento inteligente
+            ocr_results = self.ocr.process_ine_image(
+                image_path=image_path
+            )
+            
+            logger.info(f"  → OCR Complete: {ocr_results['overall_confidence']:.0f}% confidence")
+            
+            # Actualizar Sheet
+            self._update_row_with_results(row_num, ocr_results)
             
         except Exception as e:
-            logger.error(f"❌ Error al obtener archivos pendientes: {e}")
-            return []
-    
-    def update_dashboard(self, metrics):
+            logger.error(f"OCR Failed: {e}", exc_info=True)
+            self._update_row_status(row_num, 'ERROR', f'OCR failed: {e}')
+        finally:
+            # Limpiar archivo temporal
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
+    def _download_file_by_name(self, filename: str) -> str:
         """
-        Actualiza el dashboard con métricas.
-        
-        Args:
-            metrics (dict): Diccionario con métricas
-        
-        Returns:
-            bool: True si la actualización fue exitosa
+        Busca y descarga un archivo por nombre desde Drive.
+        Retorna path temporal.
         """
-        if not self.dashboard_sheet:
-            logger.error("❌ Hoja de dashboard no inicializada")
-            return False
+        try:
+            # Buscar archivo
+            query = f"name = '{filename}' and trashed = false"
+            results = self.drive_service.files().list(q=query, fields="files(id, name)").execute()
+            files = results.get('files', [])
+            
+            if not files:
+                logger.warning(f"File not found: {filename}")
+                return None
+                
+            file_id = files[0]['id']
+            
+            # Descargar
+            request = self.drive_service.files().get_media(fileId=file_id)
+            file_content = request.execute()
+            
+            # Guardar en temp
+            fd, path = tempfile.mkstemp(suffix='.jpg')
+            with os.fdopen(fd, 'wb') as f:
+                f.write(file_content)
+            
+            logger.info(f"  ✓ Downloaded {filename} to {path}")
+            return path
+            
+        except Exception as e:
+            logger.error(f"Error downloading file: {e}")
+            return None
+
+    def _update_row_with_results(self, row_num: int, ocr_results: dict):
+        """
+        Actualizar Sheet con resultados OCR.
+        
+        Mapeo de Columnas (Basado en REGISTRO_HEADERS actual + Nuevas):
+        A: FECHA_HORA (No tocar)
+        B: NOMBRE_ARCHIVO (No tocar)
+        C: CURP_DETECTADA
+        D: CONFIANZA_OCR
+        E: NOMBRE_EXTRAIDO
+        F: SEXO_EXTRAIDO
+        G: TEXTO_CRUDO
+        H: STATUS
+        I: LINK_FOTO (No tocar)
+        J: BIOLOGICO (No tocar)
+        K: DOSIS (No tocar)
+        L: OCR_STRATEGY
+        M: OCR_TIMESTAMP
+        N: OCR_ISSUES
+        """
+        
+        fields = ocr_results['fields']
+        
+        # Preparar valores para actualizar (Columnas C a H y L a N)
+        # Nota: gspread update con rango permite actualizar bloques
+        
+        # Bloque 1: C-H (CURP, Confianza, Nombre, Sexo, RawText, Status)
+        curp = fields['curp'].value
+        conf = f"{ocr_results['overall_confidence']:.2f}"
+        nombre = fields['nombre'].value
+        sexo = fields['sexo'].value
+        raw_text = "..." # Omitimos raw text largo para limpieza, o lo ponemos truncado
+        status = 'COMPLETADO' if ocr_results['overall_confidence'] >= 80 else 'REVISION'
+        
+        # Bloque 2: L-N (Strategy, Timestamp, Issues)
+        strategy = ocr_results['strategy']
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        issues = self._format_issues(fields)
         
         try:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # Actualizar Bloque C-H (Indices 3-8, columnas C,D,E,F,G,H)
+            # Rango C{row}:H{row}
+            self.sheet.update(f'C{row_num}:H{row_num}', [[curp, conf, nombre, sexo, raw_text, status]])
             
-            # Limpiar dashboard (excepto headers)
-            self.dashboard_sheet.clear()
-            self.dashboard_sheet.append_row(DASHBOARD_HEADERS)
+            # Actualizar Bloque L-N (Indices 12-14, columnas L,M,N)
+            # Rango L{row}:N{row}
+            self.sheet.update(f'L{row_num}:N{row_num}', [[strategy, timestamp, issues]])
             
-            # Agregar métricas
-            rows = []
-            for metric_name, metric_value in metrics.items():
-                rows.append([metric_name, metric_value, timestamp])
-            
-            if rows:
-                self.dashboard_sheet.append_rows(rows)
-            
-            logger.info(f"✅ Dashboard actualizado con {len(rows)} métricas")
-            return True
+            logger.info(f"  ✓ Row {row_num} updated successfully")
             
         except Exception as e:
-            logger.error(f"❌ Error al actualizar dashboard: {e}")
-            return False
+            logger.error(f"  ✗ Failed to update row: {e}")
+
+    def _format_issues(self, fields: dict) -> str:
+        """
+        Formatear lista de campos con baja confianza.
+        """
+        issues = []
+        for field_name, field in fields.items():
+            if field.confidence < 80 and field.value:
+                issues.append(f"{field_name}({field.confidence:.0f}%)")
+        return '; '.join(issues) if issues else 'None'
     
-    def get_total_registros(self):
+    def _update_row_status(self, row_num: int, status: str, message: str = ''):
         """
-        Obtiene el total de registros en la hoja.
-        
-        Returns:
-            int: Número total de registros (sin contar header)
+        Actualizar solo el status de una fila (para errores).
+        Columna H es STATUS. Columna N es ISSUES (usaremos esa para el mensaje).
         """
-        if not self.registro_sheet:
-            return 0
-        
         try:
-            all_values = self.registro_sheet.get_all_values()
-            # Restar 1 por el header
-            return len(all_values) - 1 if len(all_values) > 0 else 0
+            self.sheet.update_cell(row_num, 8, status) # Col H
+            self.sheet.update_cell(row_num, 14, f"ERROR: {message}") # Col N
         except Exception as e:
-            logger.error(f"❌ Error al obtener total de registros: {e}")
-            return 0
-    
-    def check_curp_exists(self, curp):
-        """
-        Verifica si una CURP ya existe en la hoja.
-        
-        Args:
-            curp (str): CURP a verificar
-        
-        Returns:
-            bool: True si la CURP ya existe
-        """
-        if not self.registro_sheet or not curp:
-            return False
-        
-        try:
-            # Buscar en la columna de CURP (columna 3)
-            cell = self.registro_sheet.find(curp, in_column=3)
-            return cell is not None
-        except Exception as e:
-            logger.debug(f"CURP no encontrada o error: {e}")
-            return False
+            logger.error(f"Failed to update status: {e}")
