@@ -86,6 +86,67 @@ def preprocess_resize(image_path):
     return gray
 
 
+def extract_text_smart_crop(image_path):
+    """
+    Estrategia avanzada: Busca la palabra 'CURP' o 'ELECTOR' y hace OCR
+    específico en la región a la derecha (donde debería estar la clave).
+    """
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            return ""
+            
+        # Resize 2x para mejor detección
+        height, width = img.shape[:2]
+        img = cv2.resize(img, (width * 2, height * 2), interpolation=cv2.INTER_CUBIC)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Binarizar para encontrar layout
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Obtener datos de posición de palabras
+        data = pytesseract.image_to_data(binary, output_type=pytesseract.Output.DICT)
+        
+        found_text = []
+        n_boxes = len(data['text'])
+        
+        for i in range(n_boxes):
+            text = data['text'][i].upper().strip()
+            if 'CURP' in text or 'ELECTOR' in text:
+                (x, y, w, h) = (data['left'][i], data['top'][i], data['width'][i], data['height'][i])
+                
+                # Definir ROI a la derecha
+                # Asumimos que la CURP está a la derecha de la etiqueta
+                roi_x = x + w + 5
+                roi_y = y - 5 # Un poco más arriba para margen
+                roi_w = int(width * 0.6) # Ancho generoso
+                roi_h = h + 15 # Un poco más alto
+                
+                # Validar límites
+                h_img, w_img = binary.shape
+                roi_x = max(0, min(roi_x, w_img - 1))
+                roi_y = max(0, min(roi_y, h_img - 1))
+                roi_w = min(roi_w, w_img - roi_x)
+                roi_h = min(roi_h, h_img - roi_y)
+                
+                if roi_w > 10 and roi_h > 5:
+                    roi = binary[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
+                    
+                    # OCR específico de línea única (PSM 7)
+                    config_roi = '--oem 3 --psm 7 -l spa'
+                    roi_text = pytesseract.image_to_string(roi, config=config_roi).strip()
+                    
+                    if len(roi_text) > 5:
+                        logger.info(f"   SmartCrop encontró: '{roi_text}' cerca de '{text}'")
+                        found_text.append(roi_text)
+        
+        return "\n".join(found_text)
+        
+    except Exception as e:
+        logger.error(f"⚠️ Error en SmartCrop: {e}")
+        return ""
+
+
 def extract_text_hybrid(image, use_easyocr_fallback=False, image_path=None):
     """
     Extrae texto usando múltiples estrategias de OCR.
@@ -144,6 +205,14 @@ def extract_text_hybrid(image, use_easyocr_fallback=False, image_path=None):
             best_text = text
             best_confidence = confidence
             best_method = method_name
+    
+    # --- SMART CROP STEP ---
+    # Intentar extraer CURP con recorte inteligente y agregarlo al texto final
+    if image_path:
+        smart_crop_text = extract_text_smart_crop(image_path)
+        if smart_crop_text:
+            best_text += f"\n\n--- SMART CROP RESULTS ---\n{smart_crop_text}"
+            logger.info(f"✅ SmartCrop agregó {len(smart_crop_text)} chars al resultado")
     
     logger.info(f"✅ Best OCR: {best_method} (conf={best_confidence:.2f}, {len(best_text)} chars)")
     return best_text, best_confidence, best_method
