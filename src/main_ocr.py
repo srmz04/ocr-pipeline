@@ -291,17 +291,14 @@ class OCRPipeline:
                     # 5. Guardar resultados
                     logger.info("💾 Guardando resultados...")
                     
-                    # Preparar datos para Sheets
+                    # Preparar datos para Sheets - KEYS MUST MATCH sheets_manager.update_entry_by_filename
                     sheet_data = {
-                        'fecha_hora': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'nombre_archivo': result['file_name'],
-                        'curp_detectada': result['curp'],
-                        'confianza_ocr': f"{result['confidence']:.2f}",
-                        'nombre_extraido': result.get('nombre', ''),
-                        'sexo_extraido': result.get('sexo', ''),
-                        'texto_crudo': result['raw_text'].replace('\n', ' ').replace('\r', ' '), # Sanitize text
-                        'status': result['status'],
-                        'link_foto': self.drive_manager.get_file_link(result['file_id'])
+                        'curp': result['curp'],
+                        'confidence': f"{result['confidence']:.2f}",
+                        'nombre': result.get('nombre', ''),
+                        'sexo': result.get('sexo', ''),
+                        'raw_text': result['raw_text'].replace('\n', ' ').replace('\r', ' '),
+                        'status': result['status']
                     }
                     
                     # Actualizar hoja (buscar por nombre de archivo)
