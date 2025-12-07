@@ -155,7 +155,7 @@ class OCRPipeline:
             # 2. OCR con motor robusto
             logger.info("🔍 Ejecutando OCR Robusto...")
             # Ahora devuelve 3 valores: texto, confianza, estrategia
-            raw_text, confidence, strategy = ocr_engine.extract_text_hybrid(None, image_path=image_path)
+            raw_text, confidence, strategy = extract_text_hybrid(None, image_path=image_path)
             
             result['raw_text'] = raw_text
             result['confidence'] = confidence
