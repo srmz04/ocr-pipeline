@@ -220,7 +220,8 @@ class CaptureApp {
             await this.uploader.uploadToSheets({
                 biologico: this.selectedBiologico,
                 dosis: this.selectedDosis,
-                fileUrl: driveResult.url
+                fileUrl: driveResult.url,
+                filename: driveResult.filename // Fix: Pass the same filename used in Drive
             });
 
             this.hideLoading();
