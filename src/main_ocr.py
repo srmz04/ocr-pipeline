@@ -258,11 +258,22 @@ class OCRPipeline:
                 max_files=MAX_FILES_PER_RUN
             )
             
+            # También procesar archivos en carpeta REVISIÓN (segunda pasada)
+            logger.info(f"\n📂 Buscando archivos en carpeta '{FOLDER_REVISION_NAME}' para reprocesar...")
+            revision_files = self.drive_manager.list_files_in_folder(
+                FOLDER_REVISION_NAME,
+                max_files=MAX_FILES_PER_RUN
+            )
+            
+            if revision_files:
+                logger.info(f"📋 {len(revision_files)} archivos en REVISIÓN para reprocesar")
+                files.extend(revision_files)
+            
             if not files:
                 logger.info("ℹ️ No hay archivos para procesar")
                 return True
             
-            logger.info(f"📋 {len(files)} archivos encontrados")
+            logger.info(f"📋 {len(files)} archivos totales para procesar")
             
             # Crear directorio temporal
             with tempfile.TemporaryDirectory() as temp_dir:

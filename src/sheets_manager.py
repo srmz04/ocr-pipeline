@@ -102,7 +102,7 @@ class SheetsManager:
     def update_entry_by_filename(self, filename, data):
         """
         Actualiza una fila existente buscando por nombre de archivo.
-        Si no existe, NO crea una nueva (el frontend ya la creó).
+        Si no existe, CREA una nueva fila con todos los datos.
         
         Args:
             filename (str): Nombre del archivo a buscar
@@ -130,9 +130,31 @@ class SheetsManager:
             cell = self.registro_sheet.find(search_filename, in_column=2)
             
             if not cell:
-                logger.warning(f"⚠️ Archivo {filename} NO encontrado. El frontend debió haberlo creado.")
-                return False
+                # NO ENCONTRADO - Crear nueva fila
+                logger.info(f"📝 Archivo {filename} no existe, creando nueva entrada...")
+                from datetime import datetime
+                
+                # Crear fila completa con todos los datos
+                # Columnas: A=Fecha, B=Archivo, C=CURP, D=Confianza, E=Nombre, F=Sexo, G=Texto, H=Status, I=Link, J=Biologico, K=Dosis
+                new_row = [
+                    datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),  # A: Fecha
+                    search_filename,                               # B: Archivo
+                    data.get('curp', ''),                          # C: CURP
+                    str(data.get('confidence', '')),               # D: Confianza
+                    data.get('nombre', ''),                        # E: Nombre
+                    data.get('sexo', ''),                          # F: Sexo
+                    SheetsManager.clean_text_for_sheet(data.get('raw_text', ''))[:49000],  # G: Texto
+                    data.get('status', 'PROCESADO'),               # H: Status
+                    '',                                            # I: Link
+                    '',                                            # J: Biologico
+                    ''                                             # K: Dosis
+                ]
+                
+                self.registro_sheet.append_row(new_row, value_input_option='USER_ENTERED')
+                logger.info(f"✅ Nueva fila creada para {search_filename}")
+                return True
             
+            # ENCONTRADO - Actualizar fila existente
             row_idx = cell.row
             logger.info(f"✅ Archivo encontrado en fila {row_idx}. Actualizando celdas...")
             
