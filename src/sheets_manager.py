@@ -158,6 +158,16 @@ class SheetsManager:
                 
             if 'status' in data:
                 self.registro_sheet.update_cell(row_idx, 8, data['status'])
+
+            # Nuevas columnas de diagnóstico
+            if 'ocr_strategy' in data:
+                self.registro_sheet.update_cell(row_idx, 12, data['ocr_strategy'])
+                
+            if 'ocr_timestamp' in data:
+                self.registro_sheet.update_cell(row_idx, 13, data['ocr_timestamp'])
+                
+            if 'ocr_issues' in data:
+                self.registro_sheet.update_cell(row_idx, 14, data['ocr_issues'])
             
             logger.info(f"✅ Fila {row_idx} actualizada exitosamente")
             return True

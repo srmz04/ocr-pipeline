@@ -31,7 +31,10 @@ REGISTRO_HEADERS = [
     "STATUS",
     "LINK_FOTO",
     "BIOLOGICO",
-    "DOSIS"
+    "DOSIS",
+    "OCR_STRATEGY",
+    "OCR_TIMESTAMP",
+    "OCR_ISSUES"
 ]
 
 # Headers para el dashboard

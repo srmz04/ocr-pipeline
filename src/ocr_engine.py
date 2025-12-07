@@ -1,238 +1,201 @@
 """
-Módulo de OCR mejorado usando Tesseract con múltiples estrategias
+Módulo de OCR Profesional para INE/IFE
+Implementa arquitectura robusta: Preprocessing -> Zonal OCR -> Validation -> Fallback
 """
 import logging
-import pytesseract
-import numpy as np
 import cv2
+import numpy as np
+import pytesseract
+import re
 from PIL import Image
-
 from config import TESSERACT_CONFIG, TESSERACT_CONFIG_SPARSE
 
 logger = logging.getLogger(__name__)
 
-
-def extract_text_tesseract(image, config=TESSERACT_CONFIG):
-    """
-    Extrae texto de una imagen usando Tesseract OCR.
+class OCREngine:
+    def __init__(self):
+        # Definición de Zonas (Porcentajes del tamaño de imagen)
+        # Basado en análisis de INE Tipo E/G/H
+        self.ZONES = {
+            'CURP': {
+                'y_min': 0.30, 'y_max': 0.50,  # Tercio superior-medio
+                'x_min': 0.35, 'x_max': 0.95   # Lado derecho
+            },
+            'SEXO': {
+                'y_min': 0.35, 'y_max': 0.55,
+                'x_min': 0.60, 'x_max': 0.85
+            }
+        }
     
-    Args:
-        image (numpy.ndarray): Imagen preprocesada
-        config (str): Configuración de Tesseract
-    
-    Returns:
-        tuple: (texto_extraído, confianza_promedio)
-    """
-    try:
-        # Extraer texto
-        text = pytesseract.image_to_string(image, config=config)
-        
-        # Obtener datos de confianza
-        data = pytesseract.image_to_data(image, config=config, output_type=pytesseract.Output.DICT)
-        
-        # Calcular confianza promedio (solo palabras con confianza > 0)
-        confidences = [int(conf) for conf in data['conf'] if int(conf) > 0]
-        avg_confidence = sum(confidences) / len(confidences) if confidences else 0
-        
-        # Normalizar confianza a 0-1
-        confidence_normalized = avg_confidence / 100.0
-        
-        return text.strip(), confidence_normalized
-        
-    except Exception as e:
-        logger.error(f"❌ Error en Tesseract OCR: {e}")
-        return "", 0.0
+    def preprocess_image(self, image_path):
+        """
+        Pipeline de preprocesamiento profesional:
+        1. Grayscale
+        2. CLAHE (Mejora contraste local)
+        3. Bilateral Filter (Reducción ruido preservando bordes)
+        4. Upscaling 2x (Mejora resolución para Tesseract)
+        """
+        try:
+            # 1. Cargar y Grayscale
+            img = cv2.imread(image_path)
+            if img is None:
+                raise ValueError(f"No se pudo leer la imagen: {image_path}")
+                
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            # 3. Bilateral Filter (Remueve ruido del sensor del teléfono)
+            # d=9, sigmaColor=75, sigmaSpace=75 son valores estándar buenos
+            denoised = cv2.bilateralFilter(enhanced, 9, 75, 75)
+            
+            # 4. Upscaling 2x
+            height, width = denoised.shape[:2]
+            upscaled = cv2.resize(denoised, (width * 2, height * 2), interpolation=cv2.INTER_CUBIC)
+            
+            # 5. Thresholding suave (Opcional, a veces ayuda, a veces no. 
+            # Tesseract hace su propio thresholding, pero Otsu puede ayudar a limpiar fondos complejos)
+            # _, binary = cv2.threshold(upscaled, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            return upscaled # Retornamos upscaled (grayscale mejorado), dejamos que Tesseract binarice
+            
+        except Exception as e:
+            logger.error(f"❌ Error en preprocesamiento: {e}")
+            return None
 
-
-def preprocess_minimal(image_path):
-    """Preprocesamiento mínimo - solo escala de grises"""
-    img = cv2.imread(image_path)
-    if img is None:
-        return None
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return gray
-
-
-def preprocess_contrast(image_path):
-    """Preprocesamiento con mejora de contraste"""
-    img = cv2.imread(image_path)
-    if img is None:
-        return None
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    return enhanced
-
-
-def preprocess_denoise(image_path):
-    """Preprocesamiento con reducción de ruido"""
-    img = cv2.imread(image_path)
-    if img is None:
-        return None
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    denoised = cv2.fastNlMeansDenoising(gray, h=10)
-    return denoised
-
-
-def preprocess_resize(image_path):
-    """Preprocesamiento con escalado 2x"""
-    img = cv2.imread(image_path)
-    if img is None:
-        return None
-    height, width = img.shape[:2]
-    img_resized = cv2.resize(img, (width * 2, height * 2), interpolation=cv2.INTER_CUBIC)
-    gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
-    return gray
-
-
-def extract_text_smart_crop(image_path):
-    """
-    Estrategia avanzada: Busca la palabra 'CURP' o 'ELECTOR' y hace OCR
-    específico en la región a la derecha (donde debería estar la clave).
-    """
-    try:
-        img = cv2.imread(image_path)
-        if img is None:
+    def extract_zonal(self, image, zone_key):
+        """Extrae texto de una zona específica definida en self.ZONES"""
+        if image is None:
             return ""
             
-        # Resize 2x para mejor detección
-        height, width = img.shape[:2]
-        img = cv2.resize(img, (width * 2, height * 2), interpolation=cv2.INTER_CUBIC)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Binarizar para encontrar layout
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Obtener datos de posición de palabras
-        data = pytesseract.image_to_data(binary, output_type=pytesseract.Output.DICT)
-        
-        found_text = []
-        n_boxes = len(data['text'])
-        
-        for i in range(n_boxes):
-            text = data['text'][i].upper().strip()
-            if 'CURP' in text or 'ELECTOR' in text:
-                (x, y, w, h) = (data['left'][i], data['top'][i], data['width'][i], data['height'][i])
-                
-                # Definir ROI a la derecha
-                # Asumimos que la CURP está a la derecha de la etiqueta
-                roi_x = x + w + 5
-                roi_y = y - 5 # Un poco más arriba para margen
-                roi_w = int(width * 0.6) # Ancho generoso
-                roi_h = h + 15 # Un poco más alto
-                
-                # Validar límites
-                h_img, w_img = binary.shape
-                roi_x = max(0, min(roi_x, w_img - 1))
-                roi_y = max(0, min(roi_y, h_img - 1))
-                roi_w = min(roi_w, w_img - roi_x)
-                roi_h = min(roi_h, h_img - roi_y)
-                
-                if roi_w > 10 and roi_h > 5:
-                    roi = binary[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
-                    
-                    # OCR específico de línea única (PSM 7)
-                    config_roi = '--oem 3 --psm 7 -l spa'
-                    roi_text = pytesseract.image_to_string(roi, config=config_roi).strip()
-                    
-                    if len(roi_text) > 5:
-                        logger.info(f"   SmartCrop encontró: '{roi_text}' cerca de '{text}'")
-                        found_text.append(roi_text)
-        
-        return "\n".join(found_text)
-        
-    except Exception as e:
-        logger.error(f"⚠️ Error en SmartCrop: {e}")
-        return ""
+        try:
+            h, w = image.shape[:2]
+            zone = self.ZONES[zone_key]
+            
+            y1 = int(h * zone['y_min'])
+            y2 = int(h * zone['y_max'])
+            x1 = int(w * zone['x_min'])
+            x2 = int(w * zone['x_max'])
+            
+            # Crop
+            roi = image[y1:y2, x1:x2]
+            
+            # OCR Configuration optimizada para campo único
+            # PSM 6 (Block of text) o 7 (Single line)
+            config = '--oem 3 --psm 6 -l spa'
+            
+            text = pytesseract.image_to_string(roi, config=config)
+            return text.strip()
+            
+        except Exception as e:
+            logger.error(f"❌ Error en extracción zonal ({zone_key}): {e}")
+            return ""
 
+    def validate_curp(self, text):
+        """Valida si un texto parece una CURP válida y retorna score"""
+        if not text:
+            return None, 0
+            
+        # Limpieza básica
+        clean = text.upper().replace(' ', '').replace('\n', '').strip()
+        
+        # Correcciones comunes de OCR
+        clean = clean.replace('O', '0').replace('I', '1').replace('L', '1')
+        
+        # Buscar patrón de CURP (18 caracteres)
+        # Regex: 4 letras, 6 números, 1 letra (H/M), 2 letras (Entidad), 3 letras, 1 num/letra, 1 num
+        pattern = r'[A-Z]{4}\d{6}[HM][A-Z]{2}[A-Z]{3}[A-Z0-9]\d'
+        
+        match = re.search(pattern, clean)
+        if match:
+            return match.group(0), 1.0 # Confianza alta
+            
+        # Búsqueda difusa (si falla el exacto)
+        # Busca al menos la estructura inicial: 4 letras + fecha
+        fuzzy_pattern = r'[A-Z]{4}\d{6}'
+        match_fuzzy = re.search(fuzzy_pattern, clean)
+        if match_fuzzy:
+            # Intentar extraer 18 chars desde ahí
+            start = match_fuzzy.start()
+            if start + 18 <= len(clean):
+                candidate = clean[start:start+18]
+                return candidate, 0.7 # Confianza media
+        
+        return None, 0.0
+
+    def process_file(self, image_path):
+        """
+        Método principal: Orquesta todo el proceso
+        Returns: dict con resultados
+        """
+        logger.info(f"🔄 Procesando {image_path} con Motor Robusto...")
+        
+        # 1. Preprocessing
+        processed_img = self.preprocess_image(image_path)
+        if processed_img is None:
+            return {'error': 'Preprocessing failed'}
+            
+        results = {
+            'curp': None,
+            'confidence': 0.0,
+            'strategy': 'None',
+            'raw_text': ''
+        }
+        
+        # 2. Estrategia A: Zonal OCR (La preferida)
+        logger.debug("   Estrategia A: Zonal OCR")
+        zonal_text = self.extract_zonal(processed_img, 'CURP')
+        curp, conf = self.validate_curp(zonal_text)
+        
+        if curp and conf > 0.6:
+            logger.info(f"   ✅ CURP encontrada por Zonal: {curp}")
+            results['curp'] = curp
+            results['confidence'] = conf
+            results['strategy'] = 'Zonal'
+            results['raw_text'] = zonal_text
+            return results
+            
+        # 3. Estrategia B: Full Image OCR (Fallback)
+        logger.debug("   Estrategia B: Full Image OCR")
+        full_text = pytesseract.image_to_string(processed_img, config=TESSERACT_CONFIG)
+        curp_full, conf_full = self.validate_curp(full_text)
+        
+        if curp_full:
+            logger.info(f"   ✅ CURP encontrada por Full OCR: {curp_full}")
+            results['curp'] = curp_full
+            results['confidence'] = conf_full
+            results['strategy'] = 'Full_Fallback'
+            results['raw_text'] = full_text
+            return results
+            
+        # 4. Estrategia C: SmartCrop (Legacy/Keyword based) - Último recurso
+        # (Opcional, si queremos mantenerlo como red de seguridad)
+        
+        logger.warning("   ⚠️ No se encontró CURP válida")
+        results['raw_text'] = full_text # Guardar lo que se leyó para debug
+        results['strategy'] = 'Failed'
+        
+        return results
+
+# Instancia global para uso fácil
+engine = OCREngine()
 
 def extract_text_hybrid(image, use_easyocr_fallback=False, image_path=None):
-    """
-    Extrae texto usando múltiples estrategias de OCR.
-    
-    Intenta varias combinaciones de preprocesamiento y configuración
-    para obtener el mejor resultado posible.
-    
-    Args:
-        image (numpy.ndarray): Imagen preprocesada (legacy)
-        use_easyocr_fallback (bool): Ignorado
-        image_path (str): Ruta al archivo original (para multipass)
-    
-    Returns:
-        tuple: (texto_extraído, confianza, método_usado)
-    """
-    best_text = ""
-    best_confidence = 0.0
-    best_method = "None"
-    
-    strategies = []
-    
-    if image_path:
-        # Estrategia 1: Imagen original con escala de grises (mínimo procesamiento)
-        strategies.append(("Minimal+PSM3", preprocess_minimal(image_path), TESSERACT_CONFIG))
+    """Wrapper para mantener compatibilidad con main_ocr.py"""
+    if not image_path:
+        return "", 0.0, "NoPath"
         
-        # Estrategia 2: Imagen original con PSM 11 (sparse text - mejor para tarjetas)
-        strategies.append(("Minimal+PSM11", preprocess_minimal(image_path), TESSERACT_CONFIG_SPARSE))
-        
-        # Estrategia 3: Con mejora de contraste
-        strategies.append(("CLAHE+PSM3", preprocess_contrast(image_path), TESSERACT_CONFIG))
-        
-        # Estrategia 4: Con reducción de ruido
-        strategies.append(("Denoise+PSM11", preprocess_denoise(image_path), TESSERACT_CONFIG_SPARSE))
-        
-        # Estrategia 5: Escalado 2x
-        strategies.append(("Resize2x+PSM3", preprocess_resize(image_path), TESSERACT_CONFIG))
-    else:
-        # Fallback: Usar la imagen ya procesada
-        strategies.append(("Legacy", image, TESSERACT_CONFIG))
+    result = engine.process_file(image_path)
     
-    for method_name, processed_img, config in strategies:
-        if processed_img is None:
-            continue
-            
-        text, confidence = extract_text_tesseract(processed_img, config)
+    # Adaptar retorno a lo que espera main_ocr.py: (text, confidence, method)
+    # Nota: main_ocr espera el texto completo en el primer argumento para buscar otros datos
+    # pero aquí priorizamos la CURP. Retornaremos el raw_text para que RobustExtractor
+    # (si se sigue usando fuera) pueda buscar, pero inyectaremos la CURP encontrada al inicio.
+    
+    final_text = result['raw_text']
+    if result['curp']:
+        final_text = f"CURP: {result['curp']}\n\n{final_text}"
         
-        logger.debug(f"   {method_name}: {len(text)} chars, conf={confidence:.2f}")
-        
-        # Usar el resultado con más texto (si la confianza es razonable)
-        # o el de mayor confianza si todos tienen poco texto
-        if len(text) > len(best_text) and confidence > 0.2:
-            best_text = text
-            best_confidence = confidence
-            best_method = method_name
-        elif confidence > best_confidence and len(text) > 100:
-            best_text = text
-            best_confidence = confidence
-            best_method = method_name
-    
-    # --- SMART CROP STEP ---
-    # Intentar extraer CURP con recorte inteligente y agregarlo al texto final
-    if image_path:
-        smart_crop_text = extract_text_smart_crop(image_path)
-        if smart_crop_text:
-            best_text += f"\n\n--- SMART CROP RESULTS ---\n{smart_crop_text}"
-            logger.info(f"✅ SmartCrop agregó {len(smart_crop_text)} chars al resultado")
-    
-    logger.info(f"✅ Best OCR: {best_method} (conf={best_confidence:.2f}, {len(best_text)} chars)")
-    return best_text, best_confidence, best_method
-
-
-def extract_text_from_file(image_path, use_easyocr_fallback=False):
-    """
-    Extrae texto de un archivo de imagen usando múltiples estrategias.
-    
-    Args:
-        image_path (str): Ruta al archivo de imagen
-        use_easyocr_fallback (bool): Ignorado
-    
-    Returns:
-        tuple: (texto_extraído, confianza, método_usado)
-    """
-    try:
-        with Image.open(image_path) as img:
-            image_np = np.array(img)
-            return extract_text_hybrid(image_np, use_easyocr_fallback, image_path=image_path)
-    except Exception as e:
-        logger.error(f"❌ Error al extraer texto de {image_path}: {e}")
-        return "", 0.0, "Error"
+    return final_text, result['confidence'], result['strategy']

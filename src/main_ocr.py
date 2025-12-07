@@ -134,109 +134,67 @@ class OCRPipeline:
             'destination_folder': FOLDER_ERRORES_NAME,
             'raw_text': '',
             'nombre': '',
-            'sexo': ''
+            'sexo': '',
+            'ocr_strategy': '',
+            'ocr_timestamp': '',
+            'ocr_issues': ''
         }
         
         try:
-            # Descargar imagen
-            temp_path = os.path.join(temp_dir, file_name)
+            # 1. Descargar archivo
+            file_id = file_info['id']
+            file_name = file_info['name']
             
-            if not self.drive_manager.download_file(file_id, temp_path):
+            logger.info(f"⬇️ Descargando {file_name}...")
+            image_path = os.path.join(temp_dir, file_name)
+            
+            if not self.drive_manager.download_file(file_id, image_path):
                 result['status'] = 'ERROR_DESCARGA'
                 return result
             
-            # Validar imagen
-            is_valid, validation_msg = validate_image(temp_path)
-            if not is_valid:
-                logger.warning(f"⚠️ Imagen inválida: {validation_msg}")
-                result['status'] = f'ERROR_VALIDACION: {validation_msg}'
-                return result
+            # 2. OCR con motor robusto
+            logger.info("🔍 Ejecutando OCR Robusto...")
+            # Ahora devuelve 3 valores: texto, confianza, estrategia
+            raw_text, confidence, strategy = ocr_engine.extract_text_hybrid(None, image_path=image_path)
             
-            # Preprocesar imagen (legacy - para compatibilidad)
-            logger.info("🔧 Preprocesando imagen...")
-            processed_image = preprocess_image(temp_path)
+            result['raw_text'] = raw_text
+            result['confidence'] = confidence
+            result['ocr_strategy'] = strategy
+            result['ocr_timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # Extraer texto con OCR multi-estrategia
-            logger.info("🔍 Extrayendo texto con OCR multi-estrategia...")
-            raw_text, ocr_confidence, ocr_method = extract_text_hybrid(
-                processed_image,
-                use_easyocr_fallback=USE_EASYOCR_FALLBACK,
-                image_path=temp_path  # Pass original path for multi-pass
-            )
+            # 3. Extracción de entidades (CURP, Nombre, Sexo)
+            # Usamos RobustExtractor que buscará en el texto (que ya incluye la CURP zonal si se encontró)
             
-            result['raw_text'] = raw_text[:500]  # Limitar a 500 caracteres
-            result['confidence'] = ocr_confidence
-            
-            logger.info(f"📝 Texto extraído ({ocr_method}): {len(raw_text)} caracteres")
-            logger.info(f"📊 Confianza OCR: {ocr_confidence:.2f}")
-            
-            # Extraer CURP del texto usando RobustExtractor
-            logger.info("🔎 Buscando CURP con extractor robusto...")
-            curp_result = RobustExtractor.find_curp_fuzzy(raw_text)
-            
-            if not curp_result:
-                logger.warning("⚠️ No se encontró CURP en el texto")
-                result['status'] = 'SIN_CURP'
-                result['destination_folder'] = FOLDER_REVISION_NAME
-                result['curp'] = 'X'
-                return result
-            
-            curps_found = [curp_result]  # Convert to list for compatibility
-            
-            # Validar CURP(s) encontrada(s)
-            best_curp = None
-            best_confidence = 0.0
-            
-            for curp in curps_found:
-                is_valid, curp_conf, msg = validate_curp_complete(curp)
-                logger.info(f"   CURP: {curp} - Válida: {is_valid} - Confianza: {curp_conf:.2f} - {msg}")
-                
-                if is_valid and curp_conf > best_confidence:
-                    best_curp = curp
-                    best_confidence = curp_conf
-            
-            if not best_curp:
-                logger.warning("⚠️ CURPs encontradas pero ninguna es válida")
-                result['status'] = 'CURP_INVALIDA'
-                result['destination_folder'] = FOLDER_REVISION_NAME
-                result['curp'] = curps_found[0] if curps_found else 'X'
-                return result
-            
-            # CURP válida encontrada
-            result['curp'] = best_curp
-            result['success'] = True
-            
-            # Verificar si es duplicado
-            if self.sheets_manager.check_curp_exists(best_curp):
-                logger.warning(f"⚠️ CURP duplicada: {best_curp}")
-            # 4. Extraer información (CURP)
-            logger.info("🔍 Buscando CURP en el texto...")
-            
-            # Usar Extractor Robusto
-            curp_encontrada = RobustExtractor.find_curp_fuzzy(raw_text)
-            
-            if curp_encontrada:
-                logger.info(f"✅ CURP detectada: {curp_encontrada}")
-                result['curp'] = curp_encontrada
+            # CURP
+            curp = RobustExtractor.find_curp_fuzzy(raw_text)
+            if curp:
+                logger.info(f"✅ CURP detectada: {curp}")
+                result['curp'] = curp
                 result['status'] = 'PROCESADO'
                 result['destination_folder'] = FOLDER_PROCESADAS_NAME
+                result['success'] = True
                 
-                # Extraer info adicional de la CURP
-                info_curp = extract_info_from_curp(curp_encontrada)
+                # Extraer info de la CURP
+                info_curp = extract_info_from_curp(curp)
                 if info_curp:
                     result['sexo'] = info_curp.get('sexo', '')
-                    # result['fecha_nacimiento'] = info_curp.get('fecha_nacimiento', '')
             else:
                 logger.warning("⚠️ No se encontró CURP válida")
                 result['status'] = 'SIN_CURP'
                 result['destination_folder'] = FOLDER_REVISION_NAME
-                logger.warning(f"⚠️ CURP con baja confianza: {best_curp} ({best_confidence:.2f})")
+                result['ocr_issues'] = 'CURP no encontrada'
+            
+            # Nombre (intento básico)
+            # Aquí se podría mejorar con Named Entity Recognition o regex más complejos
+            # Por ahora confiamos en que RobustExtractor podría tener algo, o lo dejamos vacío
+            # Si el OCR zonal de nombre se implementa, se usaría aquí.
             
             return result
-            
+
         except Exception as e:
             logger.error(f"❌ Error al procesar imagen: {e}", exc_info=True)
-            result['status'] = f'ERROR: {str(e)[:100]}'
+            result['status'] = f'ERROR_PROCESO'
+            result['ocr_issues'] = str(e)
             return result
     
     def run(self):
