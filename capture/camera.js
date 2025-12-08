@@ -10,15 +10,26 @@ class CameraManager {
         try {
             const constraints = {
                 video: {
-                    facingMode: this.facingMode,
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
+                    facingMode: { ideal: this.facingMode }, // Use ideal to allow fallback
+                    width: { ideal: 1280 }, // Lower resolution often defaults to main wide lens
+                    height: { ideal: 720 }
                 },
                 audio: false
             };
 
             this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             this.video.srcObject = this.stream;
+
+            // Attempt to reset zoom
+            const track = this.stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities();
+            if (capabilities.zoom) {
+                try {
+                    await track.applyConstraints({ advanced: [{ zoom: 1 }] });
+                } catch (e) {
+                    console.log('Zoom reset not supported:', e);
+                }
+            }
 
             return true;
         } catch (error) {
