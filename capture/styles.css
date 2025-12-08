@@ -85,21 +85,24 @@ body {
    ============================================ */
 .camera-container {
     position: relative;
-    width: 100%;
-    height: 60vh;
-    /* Increased from 45vh for larger view */
+    width: 100vw;
+    /* Force full viewport width */
+    height: 65vh;
+    /* Increase further */
     background: #000;
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
+    margin: 0;
+    padding: 0;
 }
 
 video#camera {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    /* Fill the frame */
+    /* Crucial for filling without black bars */
 }
 
 /* ============================================
@@ -177,18 +180,20 @@ video#camera {
 .capture-button {
     position: fixed;
     bottom: 30px;
-    /* Reduced from 20px for better safe area */
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    /* Robust centering technique */
+    transform: none;
+    /* Remove translate to avoid sub-pixel blur or accumulation */
     width: 80px !important;
-    /* Fixed round button as per request for "hardcoded" stable feel */
     height: 80px !important;
     border-radius: 50%;
     background: var(--secondary);
     border: 4px solid #fff;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    z-index: 999;
-    /* Max z-index */
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    /* Stronger shadow */
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
