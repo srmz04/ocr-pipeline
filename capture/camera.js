@@ -41,11 +41,70 @@ class CameraManager {
 
     captureFrame() {
         const canvas = document.createElement('canvas');
-        canvas.width = this.video.videoWidth;
-        canvas.height = this.video.videoHeight;
+
+        // 1. Get dimensions of video stream (actual resolution)
+        const videoWidth = this.video.videoWidth;
+        const videoHeight = this.video.videoHeight;
+
+        // 2. Get dimensions of displayed video (CSS pixels)
+        // Note: The video object might be larger than the container due to object-fit: cover
+        const container = document.querySelector('.camera-container');
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
+
+        // Calculate scale factor between video stream and displayed video (object-fit: cover logic)
+        const scaleX = containerWidth / videoWidth;
+        const scaleY = containerHeight / videoHeight;
+        const scale = Math.max(scaleX, scaleY); // Cover effect uses the larger scale
+
+        const displayedVideoWidth = videoWidth * scale;
+        const displayedVideoHeight = videoHeight * scale;
+
+        // 3. Get dimensions of guide frame (CSS pixels) relative to container
+        const guideFrame = document.querySelector('.guide-frame');
+        const guideRect = guideFrame.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Calculate guide frame position relative to the container
+        const guideRelativeTop = guideRect.top - containerRect.top;
+        const guideRelativeLeft = guideRect.left - containerRect.left;
+
+        // 4. Calculate crop coordinates on the actual video stream
+        // We need to map CSS coordinates back to video stream coordinates
+
+        // Offset of the displayed video relative to container (centered)
+        const videoOffsetX = (displayedVideoWidth - containerWidth) / 2;
+        const videoOffsetY = (displayedVideoHeight - containerHeight) / 2;
+
+        // Calculate coordinates in the displayed video space
+        const cropX_CSS = videoOffsetX + guideRelativeLeft;
+        const cropY_CSS = videoOffsetY + guideRelativeTop;
+
+        // Convert to actual video stream coordinates
+        let sourceX = cropX_CSS / scale;
+        let sourceY = cropY_CSS / scale;
+        let sourceWidth = guideRect.width / scale;
+        let sourceHeight = guideRect.height / scale;
+
+        // Add a safety margin (e.g. 10%) to account for edge cases
+        const margin = 0.1;
+        sourceX = Math.max(0, sourceX - (sourceWidth * margin));
+        sourceY = Math.max(0, sourceY - (sourceHeight * margin));
+        sourceWidth = Math.min(videoWidth - sourceX, sourceWidth * (1 + 2 * margin));
+        sourceHeight = Math.min(videoHeight - sourceY, sourceHeight * (1 + 2 * margin));
+
+        // Set canvas size to the cropped area (high resolution)
+        canvas.width = sourceWidth;
+        canvas.height = sourceHeight;
 
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(this.video, 0, 0);
+
+        // Draw only the cropped portion
+        ctx.drawImage(
+            this.video,
+            sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle
+            0, 0, canvas.width, canvas.height            // Destination rectangle
+        );
 
         return canvas;
     }
