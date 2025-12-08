@@ -8,11 +8,15 @@ class CameraManager {
 
     async initialize() {
         try {
+            // Standard recommended constraints for high-quality ID capture
+            // We prioritize resolution to ensure text is readable
             const constraints = {
                 video: {
-                    facingMode: { ideal: this.facingMode }, // Use ideal to allow fallback
-                    width: { ideal: 1280 }, // Lower resolution often defaults to main wide lens
-                    height: { ideal: 720 }
+                    facingMode: 'environment', // Force back camera
+                    width: { ideal: 1920 },    // Full HD ideal
+                    height: { ideal: 1080 },
+                    // Try to force main lens instead of wide/ultra-wide if possible
+                    advanced: [{ zoom: 1 }]
                 },
                 audio: false
             };
@@ -20,16 +24,13 @@ class CameraManager {
             this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             this.video.srcObject = this.stream;
 
-            // Attempt to reset zoom
-            const track = this.stream.getVideoTracks()[0];
-            const capabilities = track.getCapabilities();
-            if (capabilities.zoom) {
-                try {
-                    await track.applyConstraints({ advanced: [{ zoom: 1 }] });
-                } catch (e) {
-                    console.log('Zoom reset not supported:', e);
-                }
-            }
+            // Wait for video to actually play to avoid empty snaps
+            await new Promise((resolve) => {
+                this.video.onloadedmetadata = () => {
+                    this.video.play();
+                    resolve();
+                };
+            });
 
             return true;
         } catch (error) {
@@ -40,71 +41,19 @@ class CameraManager {
     }
 
     captureFrame() {
+        // WYSIWYG Strategy: Capture the full frame exactly as provided by the sensor.
+        // The user positions the physical phone to frame the ID using the visual guides.
+        // We do NO cropping here to prevent aspect ratio mismatches. 
+        // We rely on the CSS 'object-fit: contain' to show the user the REAL view.
+
         const canvas = document.createElement('canvas');
-
-        // 1. Get dimensions of video stream (actual resolution)
-        const videoWidth = this.video.videoWidth;
-        const videoHeight = this.video.videoHeight;
-
-        // 2. Get dimensions of displayed video (CSS pixels)
-        // Note: The video object might be larger than the container due to object-fit: cover
-        const container = document.querySelector('.camera-container');
-        const containerWidth = container.offsetWidth;
-        const containerHeight = container.offsetHeight;
-
-        // Calculate scale factor between video stream and displayed video (object-fit: cover logic)
-        const scaleX = containerWidth / videoWidth;
-        const scaleY = containerHeight / videoHeight;
-        const scale = Math.max(scaleX, scaleY); // Cover effect uses the larger scale
-
-        const displayedVideoWidth = videoWidth * scale;
-        const displayedVideoHeight = videoHeight * scale;
-
-        // 3. Get dimensions of guide frame (CSS pixels) relative to container
-        const guideFrame = document.querySelector('.guide-frame');
-        const guideRect = guideFrame.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-
-        // Calculate guide frame position relative to the container
-        const guideRelativeTop = guideRect.top - containerRect.top;
-        const guideRelativeLeft = guideRect.left - containerRect.left;
-
-        // 4. Calculate crop coordinates on the actual video stream
-        // We need to map CSS coordinates back to video stream coordinates
-
-        // Offset of the displayed video relative to container (centered)
-        const videoOffsetX = (displayedVideoWidth - containerWidth) / 2;
-        const videoOffsetY = (displayedVideoHeight - containerHeight) / 2;
-
-        // Calculate coordinates in the displayed video space
-        const cropX_CSS = videoOffsetX + guideRelativeLeft;
-        const cropY_CSS = videoOffsetY + guideRelativeTop;
-
-        // Convert to actual video stream coordinates
-        let sourceX = cropX_CSS / scale;
-        let sourceY = cropY_CSS / scale;
-        let sourceWidth = guideRect.width / scale;
-        let sourceHeight = guideRect.height / scale;
-
-        // Add a safety margin (e.g. 10%) to account for edge cases
-        const margin = 0.1;
-        sourceX = Math.max(0, sourceX - (sourceWidth * margin));
-        sourceY = Math.max(0, sourceY - (sourceHeight * margin));
-        sourceWidth = Math.min(videoWidth - sourceX, sourceWidth * (1 + 2 * margin));
-        sourceHeight = Math.min(videoHeight - sourceY, sourceHeight * (1 + 2 * margin));
-
-        // Set canvas size to the cropped area (high resolution)
-        canvas.width = sourceWidth;
-        canvas.height = sourceHeight;
+        canvas.width = this.video.videoWidth;
+        canvas.height = this.video.videoHeight;
 
         const ctx = canvas.getContext('2d');
 
-        // Draw only the cropped portion
-        ctx.drawImage(
-            this.video,
-            sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle
-            0, 0, canvas.width, canvas.height            // Destination rectangle
-        );
+        // Draw full video frame
+        ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
 
         return canvas;
     }

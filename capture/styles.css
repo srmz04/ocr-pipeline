@@ -80,32 +80,67 @@ body {
 /* ============================================
    Camera Container
    ============================================ */
+/* ============================================
+   Camera Container
+   ============================================ */
 .camera-container {
     position: relative;
     width: 100%;
-    height: 45vh;
-    /* Reduced to give space for controls */
+    height: 60vh; /* Aumentado para ver mejor */
     background: #000;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-/* Guide Frame - Simple white border for ID alignment */
+#camera {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* CRUCIAL: Muestra todo el sensor, sin recortes */
+}
+
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Guide Frame - Centered target for the ID */
 .guide-frame {
     position: absolute;
+    /* Center exactly relative to container */
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 320px;
+    
+    /* ID Card Dimensions (standard credit card ratio) */
+    width: 85%; 
+    max-width: 350px;
     aspect-ratio: 1.586;
-    /* ID card ratio */
-    border: 3px solid rgba(255, 255, 255, 0.8);
-    border-radius: 8px;
+    
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* Oscurece el resto */
     z-index: 10;
     pointer-events: none;
 }
 
-/* ... (keep existing camera styles) ... */
+.guide-frame::after {
+    content: "Encuadre aquí";
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 14px;
+    text-shadow: 0 1px 2px black;
+    white-space: nowrap;
+}
 
 /* ============================================
    Split Layout
