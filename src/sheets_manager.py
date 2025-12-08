@@ -47,10 +47,44 @@ class INESheetsManager:
             # Inicializar OCR processor
             self.ocr = INEOCRProcessor(debug=False)
             
+            # Definir headers esperados (debe coincidir con la lógica de update)
+            self.EXPECTED_HEADERS = [
+                "FECHA_HORA", "NOMBRE_ARCHIVO", "CURP_DETECTADA", "CONFIANZA_OCR",
+                "NOMBRE_EXTRAIDO", "SEXO_EXTRAIDO", "TEXTO_CRUDO", "STATUS",
+                "LINK_FOTO", "BIOLOGICO", "DOSIS", "OCR_STRATEGY",
+                "OCR_TIMESTAMP", "OCR_ISSUES"
+            ]
+            
+            # Auto-reparar headers si es necesario
+            self._validate_and_fix_headers()
+            
             logger.info(f"✓ SheetsManager initialized for '{sheet_name}'")
         except Exception as e:
             logger.error(f"❌ Error initializing SheetsManager: {e}")
             raise
+
+    def _validate_and_fix_headers(self):
+        """
+        Verifica que la fila 1 tenga los headers correctos y únicos.
+        Si no, los sobrescribe. Esto evita el error 'header row not unique'.
+        """
+        try:
+            current_headers = self.sheet.row_values(1)
+            
+            # Verificar si hay duplicados o si faltan headers
+            if len(current_headers) < len(self.EXPECTED_HEADERS) or \
+               current_headers != self.EXPECTED_HEADERS:
+                
+                logger.warning("⚠️ Headers incorrectos o duplicados detectados. Reparando...")
+                
+                # Actualizar fila 1 con los headers canónicos
+                self.sheet.update('A1:N1', [self.EXPECTED_HEADERS])
+                logger.info("✅ Headers reparados exitosamente.")
+                
+        except Exception as e:
+            logger.error(f"❌ Error validando headers: {e}")
+            # No lanzamos excepción para intentar continuar, aunque get_all_records podría fallar
+
 
     def process_pending_rows(self):
         """
