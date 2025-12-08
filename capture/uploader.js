@@ -28,7 +28,7 @@ class DriveUploader {
             const fileMetadata = {
                 name: filename,
                 parents: [CONFIG.DRIVE_FOLDER_ID],
-                description: `${metadata.biologico} - ${metadata.dosis}`,
+                description: `${metadata.producto} - ${metadata.dosis}`,
             };
 
             // Create multipart body
@@ -125,7 +125,7 @@ class DriveUploader {
                 '',                                   // 6: TEXTO
                 'PENDIENTE_OCR',                      // 7: STATUS
                 data.fileUrl || '',                   // 8: LINK
-                data.biologico || '',                 // 9: BIOLOGICO
+                data.producto || '',                 // 9: PRODUCTO
                 data.dosis || ''                      // 10: DOSIS
             ];
 

@@ -5,7 +5,7 @@ class CaptureApp {
         this.validator = new QualityValidator(this.camera);
         this.uploader = null; // Initialized after API client
 
-        this.selectedBiologico = null;
+        this.selectedProducto = null;
         this.selectedDosis = null;
 
         this.elements = {};
@@ -17,7 +17,7 @@ class CaptureApp {
     initializeElements() {
         this.elements = {
             status: document.getElementById('status'),
-            bioSelector: document.getElementById('bioSelector'),
+            productoSelector: document.getElementById('productoSelector'),
             dosisSelector: document.getElementById('dosisSelector'),
             captureBtn: document.getElementById('captureBtn'),
             historyBtn: document.getElementById('historyBtn'),
@@ -32,10 +32,10 @@ class CaptureApp {
     }
 
     attachEventListeners() {
-        // Biológico chips
-        this.elements.bioSelector.querySelectorAll('.chip').forEach(chip => {
+        // Producto chips
+        this.elements.productoSelector.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', (e) => {
-                this.selectBiologico(e.target.dataset.bio);
+                this.selectProducto(e.target.dataset.producto);
             });
         });
 
@@ -99,19 +99,19 @@ class CaptureApp {
         this.showToast('¡Listo para capturar!');
     }
 
-    selectBiologico(name) {
-        this.selectedBiologico = name;
+    selectProducto(name) {
+        this.selectedProducto = name;
 
         // Update UI
-        this.elements.bioSelector.querySelectorAll('.chip').forEach(chip => {
-            chip.classList.toggle('active', chip.dataset.bio === name);
+        this.elements.productoSelector.querySelectorAll('.chip').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.producto === name);
         });
 
         // Update dosis options
         this.updateDosisOptions(name);
 
         // Save to localStorage
-        localStorage.setItem(CONFIG.STORAGE_BIOLOGICO, name);
+        localStorage.setItem(CONFIG.STORAGE_PRODUCTO, name);
 
         // Haptic feedback
         this.vibrate(50);
@@ -120,14 +120,14 @@ class CaptureApp {
         this.checkCanCapture();
     }
 
-    updateDosisOptions(biologico) {
-        const bioConfig = CONFIG.BIOLOGICOS.find(b => b.name === biologico);
-        if (!bioConfig) return;
+    updateDosisOptions(producto) {
+        const prodConfig = CONFIG.PRODUCTOS.find(p => p.name === producto);
+        if (!prodConfig) return;
 
         const container = this.elements.dosisSelector;
         container.innerHTML = '';
 
-        bioConfig.dosis.forEach(dosis => {
+        prodConfig.dosis.forEach(dosis => {
             const chip = document.createElement('button');
             chip.className = 'chip';
             chip.dataset.dosis = dosis;
@@ -137,8 +137,8 @@ class CaptureApp {
         });
 
         // Auto-select if only one option
-        if (bioConfig.dosis.length === 1) {
-            this.selectDosis(bioConfig.dosis[0]);
+        if (prodConfig.dosis.length === 1) {
+            this.selectDosis(prodConfig.dosis[0]);
         }
     }
 
@@ -161,8 +161,8 @@ class CaptureApp {
     }
 
     checkCanCapture() {
-        const hasSelection = this.selectedBiologico && this.selectedDosis;
-        console.log('Checking capture:', { bio: this.selectedBiologico, dosis: this.selectedDosis, hasSelection });
+        const hasSelection = this.selectedProducto && this.selectedDosis;
+        console.log('Checking capture:', { producto: this.selectedProducto, dosis: this.selectedDosis, hasSelection });
 
         // FORCE ENABLE: Only check for selection, ignore everything else
         if (hasSelection) {
@@ -203,7 +203,7 @@ class CaptureApp {
 
             // Upload to Drive
             const driveResult = await this.uploader.uploadPhoto(blob, {
-                biologico: this.selectedBiologico,
+                producto: this.selectedProducto,
                 dosis: this.selectedDosis
             });
 
@@ -212,10 +212,10 @@ class CaptureApp {
             }
 
             await this.uploader.uploadToSheets({
-                biologico: this.selectedBiologico,
+                producto: this.selectedProducto,
                 dosis: this.selectedDosis,
                 fileUrl: driveResult.url,
-                filename: driveResult.filename // Fix: Pass the same filename used in Drive
+                filename: driveResult.filename
             });
 
             this.hideLoading();
@@ -260,15 +260,15 @@ class CaptureApp {
     }
 
     loadState() {
-        // Load saved biológico
-        const savedBio = localStorage.getItem(CONFIG.STORAGE_BIOLOGICO);
-        if (savedBio) {
-            this.selectBiologico(savedBio);
+        // Load saved producto
+        const savedProd = localStorage.getItem(CONFIG.STORAGE_PRODUCTO);
+        if (savedProd) {
+            this.selectProducto(savedProd);
         }
 
         // Load saved dosis
         const savedDosis = localStorage.getItem(CONFIG.STORAGE_DOSIS);
-        if (savedDosis && this.selectedBiologico) {
+        if (savedDosis && this.selectedProducto) {
             this.selectDosis(savedDosis);
         }
 

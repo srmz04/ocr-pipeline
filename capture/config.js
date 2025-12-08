@@ -13,16 +13,21 @@ const CONFIG = {
     MAX_BRIGHTNESS: 250, // Was 180
     MIN_SHARPNESS: 10,   // Was 100
     MIN_CONFIDENCE: 0.3, // Was 0.6
-    // Biológicos disponibles
-    BIOLOGICOS: [
-        { name: 'TDAP', dosis: ['1ª', '2ª', 'Refuerzo'] },
-        { name: 'Neumococo', dosis: ['1ª', '2ª', '3ª', 'Refuerzo'] },
-        { name: 'Influenza', dosis: ['Única', 'Anual'] },
-        { name: 'Sarampión', dosis: ['1ª', '2ª'] },
-        { name: 'Hepatitis B', dosis: ['1ª', '2ª', '3ª'] },
+    // Productos (Vacunas) disponibles
+    PRODUCTOS: [
+        { name: 'VITAMINAS ACD', dosis: ['Refuerzo Anual'] },
         { name: 'BCG', dosis: ['Única'] },
-        { name: 'Rotavirus', dosis: ['1ª', '2ª', '3ª'] },
-        { name: 'Otro', dosis: ['1ª', '2ª', '3ª', 'Refuerzo', 'Única'] }
+        { name: 'Hepatitis B', dosis: ['Única'] },
+        { name: 'Hexavalente', dosis: ['Primera', 'Segunda', 'Tercera', 'Cuarta'] },
+        { name: 'Rotavirus', dosis: ['Primera', 'Segunda', 'Tercera'] },
+        { name: 'Neumocócica Conjugada', dosis: ['Primera', 'Segunda', 'Refuerzo'] },
+        { name: 'Influenza', dosis: ['Primera', 'Segunda', 'Revacunación'] },
+        { name: 'SRP (Triple Viral)', dosis: ['Primera', 'Segunda'] },
+        { name: 'DPT', dosis: ['Refuerzo'] },
+        { name: 'VPH', dosis: ['Única'] },
+        { name: 'COVID', dosis: ['Refuerzo Anual'] },
+        { name: 'SR', dosis: ['Primera', 'Segunda', 'Refuerzo'] },
+        { name: 'OTRA', dosis: ['Primera', 'Segunda', 'Tercera', 'Refuerzo', 'Única', 'Otro'] }
     ],
 
     // UI Settings
@@ -30,7 +35,7 @@ const CONFIG = {
     TOAST_DURATION: 3000,
 
     // Storage keys
-    STORAGE_BIOLOGICO: 'lastBiologico',
+    STORAGE_PRODUCTO: 'lastProducto',
     STORAGE_DOSIS: 'lastDosis',
     STORAGE_COUNT: 'countToday',
     STORAGE_DATE: 'date',
