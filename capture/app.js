@@ -311,10 +311,17 @@ class CaptureApp {
             }));
 
             // Upload photo with entire queue - proxy writes ONE row with multiple columns
+            // FALLBACK: Send first item as metadata for old script compatibility
+            const firstItem = this.productQueue[0];
+            const metadataFallback = {
+                producto: firstItem.producto,
+                dosis: firstItem.dosis
+            };
+
             const driveResult = await this.uploader.uploadPhoto(
                 blob,
-                null,  // metadata (fallback, not used when queue is present)
-                queueForProxy  // queue array for multi-column format
+                metadataFallback,  // Send fallback!
+                queueForProxy
             );
 
             if (!driveResult.success) {
