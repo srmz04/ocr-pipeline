@@ -19,6 +19,7 @@ class CaptureApp {
             status: document.getElementById('status'),
             productoSelector: document.getElementById('productoSelector'),
             dosisSelector: document.getElementById('dosisSelector'),
+            customProductoInput: document.getElementById('customProductoInput'),
             captureBtn: document.getElementById('captureBtn'),
             historyBtn: document.getElementById('historyBtn'),
             helpBtn: document.getElementById('helpBtn'),
@@ -106,6 +107,15 @@ class CaptureApp {
         this.elements.productoSelector.querySelectorAll('.chip').forEach(chip => {
             chip.classList.toggle('active', chip.dataset.producto === name);
         });
+
+        // Show/hide custom input for "OTRA"
+        if (name === 'OTRA') {
+            this.elements.customProductoInput.classList.remove('hidden');
+            this.elements.customProductoInput.focus();
+        } else {
+            this.elements.customProductoInput.classList.add('hidden');
+            this.elements.customProductoInput.value = '';
+        }
 
         // Update dosis options
         this.updateDosisOptions(name);
@@ -201,9 +211,16 @@ class CaptureApp {
 
             this.showLoading('Subiendo a Drive...');
 
+            // Get final producto name (custom if OTRA was selected)
+            let finalProducto = this.selectedProducto;
+            if (this.selectedProducto === 'OTRA') {
+                const customValue = this.elements.customProductoInput.value.trim();
+                finalProducto = customValue || 'OTRA (Sin especificar)';
+            }
+
             // Upload to Drive
             const driveResult = await this.uploader.uploadPhoto(blob, {
-                producto: this.selectedProducto,
+                producto: finalProducto,
                 dosis: this.selectedDosis
             });
 
@@ -212,7 +229,7 @@ class CaptureApp {
             }
 
             await this.uploader.uploadToSheets({
-                producto: this.selectedProducto,
+                producto: finalProducto,
                 dosis: this.selectedDosis,
                 fileUrl: driveResult.url,
                 filename: driveResult.filename

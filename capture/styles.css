@@ -176,6 +176,22 @@ body {
     font-weight: 700;
 }
 
+/* Custom Input for "OTRA" option */
+.custom-input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    border: 2px solid var(--secondary);
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+}
+
+.custom-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
 /* ============================================
    Capture Button
    ============================================ */
