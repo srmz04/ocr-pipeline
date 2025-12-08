@@ -41,19 +41,37 @@ class CameraManager {
     }
 
     captureFrame() {
-        // WYSIWYG Strategy: Capture the full frame exactly as provided by the sensor.
-        // The user positions the physical phone to frame the ID using the visual guides.
-        // We do NO cropping here to prevent aspect ratio mismatches. 
-        // We rely on the CSS 'object-fit: contain' to show the user the REAL view.
-
+        // WYSIWYG Strategy with Rotation Correction
         const canvas = document.createElement('canvas');
-        canvas.width = this.video.videoWidth;
-        canvas.height = this.video.videoHeight;
-
         const ctx = canvas.getContext('2d');
 
-        // Draw full video frame
-        ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
+        const vWidth = this.video.videoWidth;
+        const vHeight = this.video.videoHeight;
+
+        // Check if we need to rotate (Mobile browsers often give landscape stream even in portrait)
+        // If window is portrait but video is landscape, we likely need rotation
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const isVideoLandscape = vWidth > vHeight;
+
+        if (isPortrait && isVideoLandscape) {
+            // Uncommment to debug: console.log('Auto-rotating capture for portrait mode');
+
+            // Swap dimensions for the canvas
+            canvas.width = vHeight;
+            canvas.height = vWidth;
+
+            // Rotate context 90 degrees
+            ctx.translate(vHeight, 0);
+            ctx.rotate(Math.PI / 2);
+
+            // Draw original video (landscape) into rotated context
+            ctx.drawImage(this.video, 0, 0, vWidth, vHeight);
+        } else {
+            // Standard capture
+            canvas.width = vWidth;
+            canvas.height = vHeight;
+            ctx.drawImage(this.video, 0, 0, vWidth, vHeight);
+        }
 
         return canvas;
     }
