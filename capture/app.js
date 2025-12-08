@@ -348,6 +348,48 @@ class CaptureApp {
         }
     }
 
+    async handleLogin() {
+        const username = this.elements.usernameInput.value.trim().toUpperCase();
+        if (username.length < 3) {
+            this.showToast('⚠️ Ingresa un usuario válido');
+            return;
+        }
+
+        localStorage.setItem('user_ocr', username);
+        this.elements.loginSection.classList.add('hidden');
+        this.elements.cameraSection.classList.remove('hidden');
+        this.checkCanCapture();
+    }
+
+    // New: Handle file from Native Camera App
+    async handleNativeCapture(file) {
+        if (this.productQueue.length === 0) {
+            this.showToast('⚠️ Agrega productos primero');
+            // Reset input so it can be triggered again
+            this.elements.nativeCameraInput.value = '';
+            return;
+        }
+
+        this.showLoading('Procesando foto nativa...');
+
+        try {
+            // We treat this file exactly like a captured blob
+            // But we might want to resize/compress it if it's huge (mobile cams are 12MP+)
+            // For now, let's just pass it through directly to the upload pipeline
+            // The pipeline expects a Blob, and File extends Blob, so it works.
+
+            // Use same pipeline as handleCapture
+            await this.processCapture(file);
+
+        } catch (error) {
+            console.error('Native capture error:', error);
+            this.showToast('❌ Error foto nativa: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+            this.elements.nativeCameraInput.value = '';
+        }
+    }
+
     async handleCapture() {
         if (this.productQueue.length === 0) {
             this.showToast('⚠️ Agrega productos primero');
@@ -358,68 +400,80 @@ class CaptureApp {
             this.showLoading('Capturando...');
             this.vibrate(100);
 
-            // Capture ONE photo for all items
-            const blob = await this.camera.captureBlob();
-            const filename = `captura_${Date.now()}.jpg`;
+            // Get Zoom Level from UI
+            const zoomLevel = parseFloat(this.elements.zoomSlider.value) || 1;
 
-            // Prepare queue for proxy (format: array of {producto, dosis})
-            const queueForProxy = this.productQueue.map(item => ({
-                producto: item.producto,
-                dosis: item.dosis
-            }));
+            // Capture Blob with specific zoom
+            const blob = await this.camera.captureBlob(zoomLevel);
 
-            // FALLBACK: Send first item as metadata for old script compatibility
-            const firstItem = this.productQueue[0];
-            const metadataFallback = {
-                producto: firstItem.producto,
-                dosis: firstItem.dosis
-            };
-
-            // 1. Check if definitely offline
-            if (!navigator.onLine) {
-                await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
-                return;
-            }
-
-            // 2. Attempt Online Upload
-            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
-
-            try {
-                const driveResult = await this.uploader.uploadPhoto(
-                    blob,
-                    metadataFallback,
-                    queueForProxy
-                );
-
-                if (!driveResult.success) {
-                    throw new Error(driveResult.error || 'Upload failed');
-                }
-
-                // SUCCESS
-                this.hideLoading();
-                this.vibrate([100, 50, 100]);
-                this.showToast(`✅ ${this.productQueue.length} producto(s) guardado(s)`);
-
-                // Update state
-                const itemCount = this.productQueue.length;
-                for (let i = 0; i < itemCount; i++) {
-                    this.incrementCount();
-                }
-                this.clearQueue();
-                this.updateLastTime();
-
-            } catch (uploadError) {
-                // 3. FALLBACK ON UPLOAD ERROR
-                console.warn('Upload failed, falling back to offline:', uploadError);
-                this.showToast('⚠️ Error de red, guardando offline...', 'warning');
-                await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
-            }
+            // Hand off to common processor
+            await this.processCapture(blob);
 
         } catch (error) {
             console.error('Capture error:', error);
             this.hideLoading();
             this.showToast('❌ Error: ' + error.message, 'error');
         }
+    }
+
+    // Common processing logic for both WebRTC and Native File
+    async processCapture(blob) {
+        const filename = `captura_${Date.now()}.jpg`;
+
+        // Prepare queue for proxy (format: array of {producto, dosis})
+        const queueForProxy = this.productQueue.map(item => ({
+            producto: item.producto,
+            dosis: item.dosis
+        }));
+
+        // FALLBACK: Send first item as metadata for old script compatibility
+        const firstItem = this.productQueue[0];
+        const metadataFallback = {
+            producto: firstItem.producto,
+            dosis: firstItem.dosis
+        };
+
+        // 1. Check if definitely offline
+        if (!navigator.onLine) {
+            await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
+            return;
+        }
+
+        // 2. Attempt Online Upload
+        this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
+
+        try {
+            const driveResult = await this.uploader.uploadPhoto(
+                blob,
+                metadataFallback,
+                queueForProxy
+            );
+
+            if (!driveResult.success) {
+                throw new Error(driveResult.error || 'Upload failed');
+            }
+
+            // SUCCESS
+            this.hideLoading();
+            this.vibrate([100, 50, 100]);
+            this.showToast(`✅ ${this.productQueue.length} producto(s) guardado(s)`);
+
+            // Update state
+            const itemCount = this.productQueue.length;
+            for (let i = 0; i < itemCount; i++) {
+                this.incrementCount();
+            }
+            this.clearQueue();
+            this.updateLastTime();
+
+        } catch (uploadError) {
+            // 3. FALLBACK ON UPLOAD ERROR
+            console.warn('Upload failed, falling back to offline:', uploadError);
+            this.showToast('⚠️ Error de red, guardando offline...', 'warning');
+            await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
+        }
+
+        this.hideLoading(); // Ensure hidden
     }
 
     incrementCount() {

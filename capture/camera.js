@@ -8,13 +8,12 @@ class CameraManager {
 
     async initialize() {
         try {
-            // Priority: High Resolution + Continuous Focus
+            // standard constraints: High Res for better digital zoom
             const constraints = {
                 video: {
-                    facingMode: 'environment',
-                    width: { ideal: 3840 }, // Ask for 4K
+                    facingMode: 'environment', // Force back camera
+                    width: { ideal: 3840 },    // 4K ideal
                     height: { ideal: 2160 },
-                    // Try to enable continuous focus if supported
                     advanced: [{ focusMode: 'continuous' }]
                 },
                 audio: false
@@ -33,7 +32,6 @@ class CameraManager {
             return true;
         } catch (error) {
             console.error('Camera error:', error);
-            // Fallback for older devices
             return this.initializeFallback();
         }
     }
@@ -53,97 +51,62 @@ class CameraManager {
         }
     }
 
-    captureFrame() {
-        // "Smart Central Crop" Strategy
-        // 1. Capture High Res Frame
-        // 2. Crop the CENTER based on the Guide Frame's relative size
-        // This allows user to stand back (good focus) but get a close-up result.
+    captureFrame(zoomLevel = 1) {
+        // Manual Digital Zoom Strategy
+        // We crop the Source Image based on the zoomLevel slider.
+        // zoomLevel 1 = Full Frame
+        // zoomLevel 2 = 50% Crop (Center)
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Source Dimensions (Camera Sensor)
         const vWidth = this.video.videoWidth;
         const vHeight = this.video.videoHeight;
 
-        // UI Dimensions (What user sees)
-        const container = document.querySelector('.camera-container');
-        const guide = document.querySelector('.guide-frame');
-
-        // Calculate Scale Factor (How much of the video is covered by the guide?)
-        // Since we use object-fit: contain, we need to know the 'rendered' video size
-        const cWidth = container.offsetWidth;
-        const cHeight = container.offsetHeight;
-
-        // Video Ratio vs Container Ratio
-        const vRatio = vWidth / vHeight;
-        const cRatio = cWidth / cHeight;
-
-        let renderedW, renderedH;
-
-        if (cRatio > vRatio) {
-            // Container is wider than video (Black bars on sides)
-            renderedH = cHeight;
-            renderedW = cHeight * vRatio;
-        } else {
-            // Container is taller than video (Black bars on top/bottom)
-            renderedW = cWidth;
-            renderedH = cWidth / vRatio;
-        }
-
-        // Guide Size relative to Rendered Video
-        const guideW = guide.offsetWidth;
-        const guideH = guide.offsetHeight;
-
-        // Calculate Crop Factors
-        // How much of the rendered video width is the guide?
-        const cropFactorW = guideW / renderedW;
-        const cropFactorH = guideH / renderedH;
-
-        // Apply to Source
-        const sourceCropW = vWidth * cropFactorW;
-        const sourceCropH = vHeight * cropFactorH;
+        // Calculate Crop Dimensions based on Zoom
+        // width = original / zoom
+        const cropW = vWidth / zoomLevel;
+        const cropH = vHeight / zoomLevel;
 
         // Center the crop
-        const sourceX = (vWidth - sourceCropW) / 2;
-        const sourceY = (vHeight - sourceCropH) / 2;
+        const startX = (vWidth - cropW) / 2;
+        const startY = (vHeight - cropH) / 2;
 
-        console.log(`Cropping: ${sourceCropW}x${sourceCropH} at ${sourceX},${sourceY} from ${vWidth}x${vHeight}`);
-
-        // Portrait Rotation Logic
+        // Detection of portrait mode for rotation
         const isPortrait = window.innerHeight > window.innerWidth;
         const isVideoLandscape = vWidth > vHeight;
 
         if (isPortrait && isVideoLandscape) {
-            // If rotating, we swap W/H in output
-            canvas.width = sourceCropH;
-            canvas.height = sourceCropW;
+            // Rotate output 90 deg
+            canvas.width = cropH;
+            canvas.height = cropW;
 
-            ctx.translate(sourceCropH, 0);
+            ctx.translate(cropH, 0);
             ctx.rotate(Math.PI / 2);
 
+            // Draw cropped area into rotated canvas
             ctx.drawImage(
                 this.video,
-                sourceX, sourceY, sourceCropW, sourceCropH, // Source Crop
-                0, 0, sourceCropW, sourceCropH              // Dest (Rotated space)
+                startX, startY, cropW, cropH,
+                0, 0, cropW, cropH
             );
         } else {
-            // Standard Landscape/Desktop
-            canvas.width = sourceCropW;
-            canvas.height = sourceCropH;
+            // Standard
+            canvas.width = cropW;
+            canvas.height = cropH;
 
             ctx.drawImage(
                 this.video,
-                sourceX, sourceY, sourceCropW, sourceCropH,
-                0, 0, sourceCropW, sourceCropH
+                startX, startY, cropW, cropH,
+                0, 0, cropW, cropH
             );
         }
 
         return canvas;
     }
 
-    captureBlob(quality = 0.92) {
-        const canvas = this.captureFrame();
+    captureBlob(zoomLevel = 1, quality = 0.92) {
+        const canvas = this.captureFrame(zoomLevel);
 
         return new Promise((resolve) => {
             canvas.toBlob((blob) => {

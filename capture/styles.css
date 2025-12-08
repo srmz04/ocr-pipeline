@@ -86,7 +86,8 @@ body {
 .camera-container {
     position: relative;
     width: 100%;
-    height: 60vh; /* Aumentado para ver mejor */
+    height: 60vh;
+    /* Aumentado para ver mejor */
     background: #000;
     overflow: hidden;
     display: flex;
@@ -97,7 +98,8 @@ body {
 #camera {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* CRUCIAL: Muestra todo el sensor, sin recortes */
+    object-fit: contain;
+    /* CRUCIAL: Muestra todo el sensor, sin recortes */
 }
 
 #overlay {
@@ -117,29 +119,53 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    
+
     /* ID Card Dimensions (standard credit card ratio) */
-    width: 85%; 
+    width: 85%;
     max-width: 350px;
     aspect-ratio: 1.586;
-    
+
     border: 2px solid rgba(255, 255, 255, 0.9);
     border-radius: 12px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* Oscurece el resto */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    /* Oscurece el resto */
     z-index: 10;
     pointer-events: none;
 }
 
-.guide-frame::after {
-    content: "Encuadre aquí";
-    position: absolute;
-    bottom: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: white;
-    font-size: 14px;
-    text-shadow: 0 1px 2px black;
-    white-space: nowrap;
+/* ============================================
+   Zoom Slider
+   ============================================ */
+#zoomSlider {
+    -webkit-appearance: none;
+    width: 60%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    outline: none;
+    transition: opacity .2s;
+}
+
+#zoomSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    background: #ffffff;
+    border: 2px solid #2196F3;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+#zoomSlider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: #ffffff;
+    border: 2px solid #2196F3;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================
