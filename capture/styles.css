@@ -193,6 +193,100 @@ body {
 }
 
 /* ============================================
+   Add to Queue Button
+   ============================================ */
+.add-queue-button {
+    width: 90%;
+    max-width: 400px;
+    margin: 12px auto;
+    display: block;
+    padding: 14px;
+    border: 2px dashed var(--primary);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-queue-button:not(:disabled):hover {
+    background: var(--primary);
+    color: white;
+}
+
+.add-queue-button:disabled {
+    border-color: var(--border);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+/* ============================================
+   Product Queue Container
+   ============================================ */
+.queue-container {
+    width: 90%;
+    max-width: 400px;
+    margin: 8px auto;
+    padding: 12px;
+    background: #e8f5e9;
+    border-radius: 8px;
+    border: 1px solid var(--primary);
+}
+
+.queue-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    display: block;
+    margin-bottom: 8px;
+}
+
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.queue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.queue-item-text {
+    font-weight: 500;
+}
+
+.queue-item-remove {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+}
+
+.clear-queue-button {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: var(--danger);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* ============================================
    Capture Button
    ============================================ */
 .capture-button {

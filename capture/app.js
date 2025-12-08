@@ -7,6 +7,7 @@ class CaptureApp {
 
         this.selectedProducto = null;
         this.selectedDosis = null;
+        this.productQueue = []; // Queue for multiple products
 
         this.elements = {};
         this.initializeElements();
@@ -20,6 +21,10 @@ class CaptureApp {
             productoSelector: document.getElementById('productoSelector'),
             dosisSelector: document.getElementById('dosisSelector'),
             customProductoInput: document.getElementById('customProductoInput'),
+            addToQueueBtn: document.getElementById('addToQueueBtn'),
+            queueContainer: document.getElementById('queueContainer'),
+            queueList: document.getElementById('queueList'),
+            clearQueueBtn: document.getElementById('clearQueueBtn'),
             captureBtn: document.getElementById('captureBtn'),
             historyBtn: document.getElementById('historyBtn'),
             helpBtn: document.getElementById('helpBtn'),
@@ -70,6 +75,16 @@ class CaptureApp {
         // Close help
         document.getElementById('closeHelp').addEventListener('click', () => {
             this.toggleHelp();
+        });
+
+        // Add to Queue button
+        this.elements.addToQueueBtn.addEventListener('click', () => {
+            this.addToQueue();
+        });
+
+        // Clear Queue button
+        this.elements.clearQueueBtn.addEventListener('click', () => {
+            this.clearQueue();
         });
     }
 
@@ -172,22 +187,95 @@ class CaptureApp {
 
     checkCanCapture() {
         const hasSelection = this.selectedProducto && this.selectedDosis;
-        console.log('Checking capture:', { producto: this.selectedProducto, dosis: this.selectedDosis, hasSelection });
 
-        // FORCE ENABLE: Only check for selection, ignore everything else
-        if (hasSelection) {
-            console.log('Enabling button...');
-            this.elements.captureBtn.removeAttribute('data-no-selection');
-            this.elements.captureBtn.disabled = false;
-            this.elements.captureBtn.classList.remove('disabled');
-            this.elements.captureBtn.style.backgroundColor = '#ff0000'; // DEBUG: RED BACKGROUND
-            this.elements.captureBtn.style.opacity = '1';
-            this.elements.captureBtn.style.cursor = 'pointer';
+        // Enable "Add to Queue" button when product and dose are selected
+        this.elements.addToQueueBtn.disabled = !hasSelection;
+
+        // Enable "Capture" button when queue has items
+        const hasQueueItems = this.productQueue.length > 0;
+        this.elements.captureBtn.disabled = !hasQueueItems;
+
+        // Update capture button text to show count
+        if (hasQueueItems) {
+            this.elements.captureBtn.querySelector('.capture-text').textContent =
+                `CAPTURAR (${this.productQueue.length})`;
         } else {
-            console.log('Disabling button...');
-            this.elements.captureBtn.setAttribute('data-no-selection', 'true');
-            // this.elements.captureBtn.disabled = true; // COMMENTED OUT TO PREVENT LOCKING
+            this.elements.captureBtn.querySelector('.capture-text').textContent = 'CAPTURAR';
         }
+    }
+
+    // ============================================
+    // Queue Management Functions
+    // ============================================
+
+    addToQueue() {
+        if (!this.selectedProducto || !this.selectedDosis) return;
+
+        // Get final producto name (custom if OTRA)
+        let finalProducto = this.selectedProducto;
+        if (this.selectedProducto === 'OTRA') {
+            const customValue = this.elements.customProductoInput.value.trim();
+            finalProducto = customValue || 'OTRA (Sin especificar)';
+        }
+
+        // Add to queue
+        this.productQueue.push({
+            producto: finalProducto,
+            dosis: this.selectedDosis,
+            id: Date.now() // Unique ID for removal
+        });
+
+        // Render queue
+        this.renderQueue();
+
+        // Show toast
+        this.showToast(`✅ ${finalProducto} agregado`);
+
+        // Haptic feedback
+        this.vibrate([50, 30, 50]);
+
+        // Reset selection for next add
+        this.selectedProducto = null;
+        this.selectedDosis = null;
+        this.elements.productoSelector.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        this.elements.dosisSelector.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        this.elements.customProductoInput.classList.add('hidden');
+        this.elements.customProductoInput.value = '';
+
+        // Update buttons
+        this.checkCanCapture();
+    }
+
+    removeFromQueue(id) {
+        this.productQueue = this.productQueue.filter(item => item.id !== id);
+        this.renderQueue();
+        this.checkCanCapture();
+    }
+
+    clearQueue() {
+        this.productQueue = [];
+        this.renderQueue();
+        this.checkCanCapture();
+        this.showToast('Lista limpiada');
+    }
+
+    renderQueue() {
+        const container = this.elements.queueList;
+        const queueContainer = this.elements.queueContainer;
+
+        if (this.productQueue.length === 0) {
+            queueContainer.classList.add('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        queueContainer.classList.remove('hidden');
+        container.innerHTML = this.productQueue.map(item => `
+            <div class="queue-item" data-id="${item.id}">
+                <span class="queue-item-text">🟢 ${item.producto} - ${item.dosis}</span>
+                <button class="queue-item-remove" onclick="app.removeFromQueue(${item.id})">✕</button>
+            </div>
+        `).join('');
     }
 
     updateStatus(result) {
@@ -202,47 +290,54 @@ class CaptureApp {
     }
 
     async handleCapture() {
+        if (this.productQueue.length === 0) {
+            this.showToast('⚠️ Agrega productos primero');
+            return;
+        }
+
         try {
             this.showLoading('Capturando...');
             this.vibrate(100);
 
-            // Capture photo
+            // Capture ONE photo for all items
             const blob = await this.camera.captureBlob();
 
-            this.showLoading('Subiendo a Drive...');
+            this.showLoading(`Subiendo ${this.productQueue.length} registro(s)...`);
 
-            // Get final producto name (custom if OTRA was selected)
-            let finalProducto = this.selectedProducto;
-            if (this.selectedProducto === 'OTRA') {
-                const customValue = this.elements.customProductoInput.value.trim();
-                finalProducto = customValue || 'OTRA (Sin especificar)';
-            }
-
-            // Upload to Drive
+            // Upload photo to Drive (once)
+            const firstItem = this.productQueue[0];
             const driveResult = await this.uploader.uploadPhoto(blob, {
-                producto: finalProducto,
-                dosis: this.selectedDosis
+                producto: firstItem.producto,
+                dosis: firstItem.dosis
             });
 
             if (!driveResult.success) {
                 throw new Error('Error al subir foto');
             }
 
-            await this.uploader.uploadToSheets({
-                producto: finalProducto,
-                dosis: this.selectedDosis,
-                fileUrl: driveResult.url,
-                filename: driveResult.filename
-            });
+            // Upload each queue item to Sheets with the same photo URL
+            for (const item of this.productQueue) {
+                await this.uploader.uploadToSheets({
+                    producto: item.producto,
+                    dosis: item.dosis,
+                    fileUrl: driveResult.url,
+                    filename: driveResult.filename
+                });
+            }
 
             this.hideLoading();
 
-            // Update count
-            this.incrementCount();
+            // Update count (add all items)
+            for (let i = 0; i < this.productQueue.length; i++) {
+                this.incrementCount();
+            }
 
             // Success feedback
             this.vibrate([100, 50, 100]);
-            this.showToast('✅ Registro completado');
+            this.showToast(`✅ ${this.productQueue.length} registro(s) guardado(s)`);
+
+            // Clear queue after successful upload
+            this.clearQueue();
 
             // Update last time
             this.updateLastTime();

@@ -96,8 +96,22 @@
         </section>
     </div>
 
+    <!-- Add to Queue Button -->
+    <button id="addToQueueBtn" class="add-queue-button" disabled>
+        + AGREGAR A LISTA
+    </button>
+
+    <!-- Product Queue Display -->
+    <div id="queueContainer" class="queue-container hidden">
+        <label class="queue-label">📋 Productos a registrar:</label>
+        <div id="queueList" class="queue-list">
+            <!-- Queue items will be added here dynamically -->
+        </div>
+        <button id="clearQueueBtn" class="clear-queue-button">🗑️ Limpiar</button>
+    </div>
+
     <!-- Capture Button -->
-    <button id="captureBtn" class="capture-button">
+    <button id="captureBtn" class="capture-button" disabled>
         <span class="capture-icon">●</span>
         <span class="capture-text">CAPTURAR</span>
     </button>
