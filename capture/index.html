@@ -59,32 +59,35 @@
         </div>
     </main>
 
-    <!-- Biológico Selector -->
-    <section class="selector">
-        <label class="selector-label">BIOLÓGICO</label>
-        <div class="chip-container" id="bioSelector">
-            <button class="chip" data-bio="TDAP">TDAP</button>
-            <button class="chip" data-bio="Neumococo">Neumococo</button>
-            <button class="chip" data-bio="Influenza">Influenza</button>
-            <button class="chip" data-bio="Sarampión">Sarampión</button>
-            <button class="chip" data-bio="Hepatitis B">Hepatitis B</button>
-            <button class="chip" data-bio="BCG">BCG</button>
-            <button class="chip" data-bio="Rotavirus">Rotavirus</button>
-            <button class="chip" data-bio="Otro">Otro...</button>
-        </div>
-    </section>
+    <!-- Split Selectors Container -->
+    <div class="split-container">
+        <!-- Biológico Selector (Left) -->
+        <section class="selector half-width">
+            <label class="selector-label">BIOLÓGICO</label>
+            <div class="chip-list" id="bioSelector">
+                <button class="chip" data-bio="TDAP">TDAP</button>
+                <button class="chip" data-bio="Neumococo">Neumococo</button>
+                <button class="chip" data-bio="Influenza">Influenza</button>
+                <button class="chip" data-bio="Sarampión">Sarampión</button>
+                <button class="chip" data-bio="Hepatitis B">Hepatitis B</button>
+                <button class="chip" data-bio="BCG">BCG</button>
+                <button class="chip" data-bio="Rotavirus">Rotavirus</button>
+                <button class="chip" data-bio="Otro">Otro...</button>
+            </div>
+        </section>
 
-    <!-- Dosis Selector -->
-    <section class="selector">
-        <label class="selector-label">DOSIS</label>
-        <div class="chip-container" id="dosisSelector">
-            <button class="chip" data-dosis="1ª">1ª</button>
-            <button class="chip" data-dosis="2ª">2ª</button>
-            <button class="chip" data-dosis="3ª">3ª</button>
-            <button class="chip" data-dosis="Refuerzo">Refuerzo</button>
-            <button class="chip" data-dosis="Única">Única</button>
-        </div>
-    </section>
+        <!-- Dosis Selector (Right) -->
+        <section class="selector half-width">
+            <label class="selector-label">DOSIS</label>
+            <div class="chip-list" id="dosisSelector">
+                <button class="chip" data-dosis="1ª">1ª</button>
+                <button class="chip" data-dosis="2ª">2ª</button>
+                <button class="chip" data-dosis="3ª">3ª</button>
+                <button class="chip" data-dosis="Refuerzo">Refuerzo</button>
+                <button class="chip" data-dosis="Única">Única</button>
+            </div>
+        </section>
+    </div>
 
     <!-- Capture Button -->
     <button id="captureBtn" class="capture-button">

@@ -90,9 +90,15 @@ class DriveUploader {
 
         } catch (error) {
             console.error('Upload error:', error);
+
+            let userMessage = error.message;
+            if (error.result && error.result.error && error.result.error.code === 403) {
+                userMessage = 'Permiso denegado. Tu correo no está autorizado en modo Test. Contacta al administrador.';
+            }
+
             return {
                 success: false,
-                error: error.message
+                error: userMessage
             };
         }
     }

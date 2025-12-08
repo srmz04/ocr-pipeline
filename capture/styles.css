@@ -77,203 +77,113 @@ body {
 /* ============================================
    Camera Container
    ============================================ */
+/* ============================================
+   Camera Container
+   ============================================ */
 .camera-container {
     position: relative;
     width: 100%;
-    height: 60vh;
+    height: 45vh; /* Reduced to give space for controls */
     background: #000;
     overflow: hidden;
 }
 
-#camera {
+/* ... (keep existing camera styles) ... */
+
+/* ============================================
+   Split Layout
+   ============================================ */
+.split-container {
+    display: flex;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-#overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-
-/* ============================================
-   Status Indicator
-   ============================================ */
-.status {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px var(--shadow-strong);
-    z-index: 10;
-}
-
-.status-ready {
-    background: rgba(76, 175, 80, 0.9);
-    color: white;
-}
-
-.status-warning {
-    background: rgba(255, 152, 0, 0.9);
-    color: white;
-}
-
-.status-error {
-    background: rgba(244, 67, 54, 0.9);
-    color: white;
-}
-
-/* ============================================
-   Guide Frame
-   ============================================ */
-.guide-frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 85%;
-    aspect-ratio: 1.586; /* INE aspect ratio */
-    pointer-events: none;
-}
-
-.corner {
-    position: absolute;
-    width: 30px;
-    height: 30px;
-    border: 3px solid rgba(76, 175, 80, 0.8);
-}
-
-.corner-tl {
-    top: 0;
-    left: 0;
-    border-right: none;
-    border-bottom: none;
-}
-
-.corner-tr {
-    top: 0;
-    right: 0;
-    border-left: none;
-    border-bottom: none;
-}
-
-.corner-bl {
-    bottom: 0;
-    left: 0;
-    border-right: none;
-    border-top: none;
-}
-
-.corner-br {
-    bottom: 0;
-    right: 0;
-    border-left: none;
-    border-top: none;
-}
-
-/* ============================================
-   Selectors
-   ============================================ */
-.selector {
-    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
+    height: calc(55vh - 80px); /* Fill remaining space minus header/footer/button approx */
+    overflow: hidden;
+}
+
+.selector.half-width {
+    flex: 1;
+    padding: 12px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto; /* Allow independent scrolling */
+    display: flex;
+    flex-direction: column;
+}
+
+.selector.half-width:last-child {
+    border-right: none;
 }
 
 .selector-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding-bottom: 8px;
+    z-index: 5;
 }
 
-.chip-container {
+/* ============================================
+   Chip List (Vertical)
+   ============================================ */
+.chip-list {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-}
-
-.chip-container::-webkit-scrollbar {
-    display: none;
+    padding-bottom: 60px; /* Space for button overlap safety */
 }
 
 .chip {
-    flex-shrink: 0;
-    padding: 10px 20px;
-    border-radius: 20px;
-    border: 2px solid var(--border);
-    background: var(--bg);
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px; /* More rectangular as per sketch */
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
     color: var(--text);
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.chip:active {
-    transform: scale(0.95);
+    text-align: center;
 }
 
 .chip.active {
-    background: var(--primary);
-    border-color: var(--primary-dark);
+    background: var(--secondary); /* Blue as per sketch */
     color: white;
-    transform: scale(1.05);
+    border-color: var(--secondary);
+    font-weight: 700;
 }
 
 /* ============================================
    Capture Button
    ============================================ */
 .capture-button {
-    position: sticky;
-    bottom: 80px;
+    position: fixed;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: calc(100% - 32px);
+    width: 90%;
     max-width: 400px;
     height: 60px;
-    margin: 16px auto;
     border: none;
-    border-radius: 30px;
-    background: var(--primary);
+    border-radius: 12px;
+    background: var(--secondary); /* Blue */
     color: white;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    box-shadow: 0 4px 12px var(--shadow-strong);
-    transition: all 0.3s;
+    box-shadow: 0 4px 20px rgba(33, 150, 243, 0.4);
+    z-index: 100;
 }
 
-.capture-button:not(:disabled):active {
-    transform: translateX(-50%) scale(0.95);
-}
-
-.capture-button:disabled,
-.capture-button[data-no-selection="true"] {
-    opacity: 0.5;
-    background: #ccc;
-    cursor: not-allowed;
-    transform: none;
+.capture-button:disabled {
+    background: #e0e0e0;
+    color: #9e9e9e;
     box-shadow: none;
-    /* pointer-events: none;  <-- REMOVED TO ALLOW CLICK DEBUGGING */
 }
 
 .capture-icon {
