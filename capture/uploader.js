@@ -216,13 +216,14 @@ class ProxyUploader {
             };
 
             // Send to Apps Script Proxy
-            // Note: fetch with no-cors might be needed if CORS issues arise, 
-            // but Apps Script Web Apps usually handle CORS if deployed correctly.
-            // Using 'no-cors' mode makes the response opaque, so we can't read JSON.
-            // We'll try standard CORS first.
+            // TRICK: Use 'text/plain' to avoid CORS Preflight (OPTIONS request)
+            // Apps Script can still parse the JSON body.
 
             const response = await fetch(CONFIG.PROXY_URL, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
                 body: JSON.stringify(payload)
             });
 
