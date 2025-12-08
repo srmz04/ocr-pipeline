@@ -4,6 +4,7 @@ class CaptureApp {
         this.camera = new CameraManager();
         this.validator = new QualityValidator(this.camera);
         this.uploader = null; // Initialized after API client
+        this.offlineManager = new OfflineManager(); // Offline queue manager
 
         this.selectedProducto = null;
         this.selectedDosis = null;
@@ -13,6 +14,7 @@ class CaptureApp {
         this.initializeElements();
         this.attachEventListeners();
         this.loadState();
+        this.updateOfflineUI(); // Check pending items on load
     }
 
     initializeElements() {
@@ -34,6 +36,12 @@ class CaptureApp {
             toast: document.getElementById('toast'),
             countToday: document.getElementById('countToday'),
             lastTime: document.getElementById('lastTime'),
+            // Offline UI elements
+            offlineBar: document.getElementById('offlineBar'),
+            offlineIcon: document.getElementById('offlineIcon'),
+            offlinePendingText: document.getElementById('offlinePendingText'),
+            syncBtn: document.getElementById('syncBtn'),
+            downloadZipBtn: document.getElementById('downloadZipBtn'),
         };
     }
 
@@ -86,6 +94,20 @@ class CaptureApp {
         this.elements.clearQueueBtn.addEventListener('click', () => {
             this.clearQueue();
         });
+
+        // Offline: Sync button
+        this.elements.syncBtn.addEventListener('click', () => {
+            this.syncOfflineQueue();
+        });
+
+        // Offline: Download ZIP button
+        this.elements.downloadZipBtn.addEventListener('click', () => {
+            this.downloadOfflineZip();
+        });
+
+        // Listen for online/offline events
+        window.addEventListener('online', () => this.updateOfflineUI());
+        window.addEventListener('offline', () => this.updateOfflineUI());
     }
 
     async init() {
@@ -301,8 +323,7 @@ class CaptureApp {
 
             // Capture ONE photo for all items
             const blob = await this.camera.captureBlob();
-
-            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
+            const filename = `captura_${Date.now()}.jpg`;
 
             // Prepare queue for proxy (format: array of {producto, dosis})
             const queueForProxy = this.productQueue.map(item => ({
@@ -310,7 +331,6 @@ class CaptureApp {
                 dosis: item.dosis
             }));
 
-            // Upload photo with entire queue - proxy writes ONE row with multiple columns
             // FALLBACK: Send first item as metadata for old script compatibility
             const firstItem = this.productQueue[0];
             const metadataFallback = {
@@ -318,9 +338,44 @@ class CaptureApp {
                 dosis: firstItem.dosis
             };
 
+            // Check if online
+            if (!navigator.onLine) {
+                // OFFLINE MODE: Save to local queue
+                this.showLoading('Guardando offline...');
+
+                // Convert blob to base64 for storage
+                const reader = new FileReader();
+                const base64 = await new Promise((resolve) => {
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+
+                this.offlineManager.addToQueue(base64, {
+                    queue: queueForProxy,
+                    ...metadataFallback
+                }, filename);
+
+                this.hideLoading();
+                this.vibrate([50, 30, 50]);
+                this.showToast(`📴 ${this.productQueue.length} guardado(s) offline`);
+
+                // Clear queue and update UI
+                const itemCount = this.productQueue.length;
+                for (let i = 0; i < itemCount; i++) {
+                    this.incrementCount();
+                }
+                this.clearQueue();
+                this.updateOfflineUI();
+                this.updateLastTime();
+                return;
+            }
+
+            // ONLINE MODE: Upload directly
+            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
+
             const driveResult = await this.uploader.uploadPhoto(
                 blob,
-                metadataFallback,  // Send fallback!
+                metadataFallback,
                 queueForProxy
             );
 
@@ -430,6 +485,107 @@ class CaptureApp {
     vibrate(pattern) {
         if ('vibrate' in navigator) {
             navigator.vibrate(pattern);
+        }
+    }
+
+    // ============================================
+    // Offline Queue Management
+    // ============================================
+
+    updateOfflineUI() {
+        const pendingCount = this.offlineManager.getPendingCount();
+        const isOnline = navigator.onLine;
+
+        if (pendingCount === 0) {
+            this.elements.offlineBar.classList.add('hidden');
+            return;
+        }
+
+        // Show the bar
+        this.elements.offlineBar.classList.remove('hidden');
+
+        // Update icon and text
+        this.elements.offlineIcon.textContent = isOnline ? '🔄' : '📴';
+        this.elements.offlinePendingText.textContent = `${pendingCount} pendiente${pendingCount > 1 ? 's' : ''}`;
+
+        // Enable/disable sync button based on connection
+        this.elements.syncBtn.disabled = !isOnline;
+        this.elements.syncBtn.textContent = isOnline ? '🔄 Sincronizar' : '📴 Sin conexión';
+    }
+
+    async syncOfflineQueue() {
+        if (!navigator.onLine) {
+            this.showToast('📴 Sin conexión a internet');
+            return;
+        }
+
+        const pendingCount = this.offlineManager.getPendingCount();
+        if (pendingCount === 0) {
+            this.showToast('✅ No hay pendientes');
+            return;
+        }
+
+        this.showLoading(`Sincronizando ${pendingCount} captura(s)...`);
+
+        try {
+            // Define upload function for each item
+            const uploadItem = async (item) => {
+                // Convert base64 back to blob
+                const byteCharacters = atob(item.imageBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+                // Upload using existing uploader
+                const result = await this.uploader.uploadPhoto(
+                    blob,
+                    item.metadata,
+                    item.metadata.queue || []
+                );
+
+                if (!result.success) {
+                    throw new Error('Upload failed');
+                }
+            };
+
+            const results = await this.offlineManager.syncAll(uploadItem);
+
+            this.hideLoading();
+            this.updateOfflineUI();
+
+            if (results.synced > 0) {
+                this.showToast(`✅ ${results.synced} captura(s) sincronizada(s)`);
+            }
+            if (results.failed > 0) {
+                this.showToast(`⚠️ ${results.failed} fallida(s)`, 'error');
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+            this.hideLoading();
+            this.showToast('❌ Error al sincronizar', 'error');
+        }
+    }
+
+    async downloadOfflineZip() {
+        const pendingCount = this.offlineManager.getPendingCount();
+        if (pendingCount === 0) {
+            this.showToast('No hay capturas para exportar');
+            return;
+        }
+
+        this.showLoading('Generando ZIP...');
+
+        try {
+            const count = await this.offlineManager.exportToZip();
+            this.hideLoading();
+            this.showToast(`📦 ZIP descargado con ${count} captura(s)`);
+        } catch (error) {
+            console.error('ZIP export error:', error);
+            this.hideLoading();
+            this.showToast('❌ Error: ' + error.message, 'error');
         }
     }
 }

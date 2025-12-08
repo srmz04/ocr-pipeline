@@ -116,6 +116,22 @@
         <span class="capture-text">CAPTURAR</span>
     </button>
 
+    <!-- Offline Indicator Bar (Hidden when no pending items) -->
+    <div id="offlineBar" class="offline-bar hidden">
+        <span class="offline-status">
+            <span id="offlineIcon">📴</span>
+            <span id="offlinePendingText">0 pendientes</span>
+        </span>
+        <div class="offline-actions">
+            <button id="syncBtn" class="offline-btn sync-btn" title="Sincronizar">
+                🔄 Sincronizar
+            </button>
+            <button id="downloadZipBtn" class="offline-btn download-btn" title="Descargar ZIP">
+                📦 Descargar ZIP
+            </button>
+        </div>
+    </div>
+
     <!-- Stats Footer -->
     <footer class="footer">
         <span>Hoy: <strong id="countToday">0</strong></span>
@@ -182,7 +198,19 @@
     <script src="camera.js"></script>
     <script src="validator.js"></script>
     <script src="uploader.js"></script>
+    <script src="offline-manager.js"></script>
     <script src="app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+                    .catch(err => console.error('[PWA] SW registration failed:', err));
+            });
+        }
+    </script>
 
 </body>
 

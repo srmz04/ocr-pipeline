@@ -510,6 +510,65 @@ body {
 }
 
 /* ============================================
+   Offline Bar
+   ============================================ */
+.offline-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+    font-size: 14px;
+    gap: 12px;
+}
+
+.offline-bar.synced {
+    background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+}
+
+.offline-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.offline-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.offline-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.offline-btn:active {
+    transform: scale(0.95);
+}
+
+.sync-btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #f57c00;
+}
+
+.download-btn {
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.offline-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================
    Utility Classes
    ============================================ */
 .hidden {
