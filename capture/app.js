@@ -302,39 +302,36 @@ class CaptureApp {
             // Capture ONE photo for all items
             const blob = await this.camera.captureBlob();
 
-            this.showLoading(`Subiendo ${this.productQueue.length} registro(s)...`);
+            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
 
-            // Upload photo to Drive (once)
-            const firstItem = this.productQueue[0];
-            const driveResult = await this.uploader.uploadPhoto(blob, {
-                producto: firstItem.producto,
-                dosis: firstItem.dosis
-            });
+            // Prepare queue for proxy (format: array of {producto, dosis})
+            const queueForProxy = this.productQueue.map(item => ({
+                producto: item.producto,
+                dosis: item.dosis
+            }));
+
+            // Upload photo with entire queue - proxy writes ONE row with multiple columns
+            const driveResult = await this.uploader.uploadPhoto(
+                blob,
+                null,  // metadata (fallback, not used when queue is present)
+                queueForProxy  // queue array for multi-column format
+            );
 
             if (!driveResult.success) {
                 throw new Error('Error al subir foto');
             }
 
-            // Upload each queue item to Sheets with the same photo URL
-            for (const item of this.productQueue) {
-                await this.uploader.uploadToSheets({
-                    producto: item.producto,
-                    dosis: item.dosis,
-                    fileUrl: driveResult.url,
-                    filename: driveResult.filename
-                });
-            }
-
             this.hideLoading();
 
             // Update count (add all items)
-            for (let i = 0; i < this.productQueue.length; i++) {
+            const itemCount = this.productQueue.length;
+            for (let i = 0; i < itemCount; i++) {
                 this.incrementCount();
             }
 
             // Success feedback
             this.vibrate([100, 50, 100]);
-            this.showToast(`✅ ${this.productQueue.length} registro(s) guardado(s)`);
+            this.showToast(`✅ ${itemCount} producto(s) guardado(s)`);
 
             // Clear queue after successful upload
             this.clearQueue();

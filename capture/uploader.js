@@ -195,7 +195,8 @@ class ProxyUploader {
         return true;
     }
 
-    async uploadPhoto(blob, metadata) {
+    // uploadPhoto now accepts optional queue array for multi-product capture
+    async uploadPhoto(blob, metadata, queue = null) {
         try {
             console.log('📤 Uploading via Proxy...');
 
@@ -212,26 +213,20 @@ class ProxyUploader {
             const payload = {
                 image: base64Data,
                 filename: `captura_${Date.now()}.jpg`,
-                metadata: metadata
+                metadata: metadata, // Single item fallback
+                queue: queue || []  // Array of {producto, dosis} for multi-column
             };
 
-            // Send to Apps Script Proxy
-            // NUCLEAR OPTION: mode 'no-cors'
-            // This bypasses CORS completely but gives an opaque response.
-            // We won't know if it failed on the server, but it fixes the browser block.
+            console.log('📦 Payload queue items:', queue ? queue.length : 0);
 
             await fetch(CONFIG.PROXY_URL, {
                 method: 'POST',
-                mode: 'no-cors', // <--- THE FIX
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'text/plain',
                 },
                 body: JSON.stringify(payload)
             });
-
-            // With no-cors, we can't read the response.
-            // We assume success if fetch didn't throw a network error.
-            // The Proxy Script handles the Sheet update, so we don't need the return values here.
 
             console.log('✅ Upload sent (Opaque/No-CORS)');
 
@@ -239,7 +234,8 @@ class ProxyUploader {
                 success: true,
                 fileId: 'unknown_opaque',
                 filename: payload.filename,
-                url: '#' // No URL available in no-cors
+                url: '#',
+                itemsProcessed: queue ? queue.length : 1
             };
 
         } catch (error) {
@@ -252,8 +248,7 @@ class ProxyUploader {
     }
 
     async uploadToSheets(data) {
-        // The proxy script ALREADY uploads to sheets.
-        // So this method is just a placeholder to satisfy the interface.
+        // The proxy script handles sheet upload with the queue
         console.log('✅ Sheets update handled by proxy');
         return { success: true };
     }
