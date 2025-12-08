@@ -73,18 +73,12 @@ class CaptureApp {
     }
 
     async init() {
-        this.showLoading('Inicializando Google API...');
+        this.showLoading('Iniciando...');
 
-        // Initialize Google API Client
-        const apiOk = await this.apiClient.initialize();
-        if (!apiOk) {
-            this.showToast('⚠️ API Offline - Modo Simulación', 'warning');
-            this.uploader = new MockUploader();
-        } else {
-            // Initialize uploader with API client only if API is OK
-            this.uploader = new DriveUploader(this.apiClient);
-        }
-
+        // 🚀 PUBLIC MODE: Use Proxy Uploader directly
+        // No Google Auth required on client side
+        console.log('Using Public Proxy Uploader');
+        this.uploader = new ProxyUploader();
         await this.uploader.initialize();
 
         this.showLoading('Iniciando cámara...');

@@ -188,5 +188,81 @@ class MockUploader {
     }
 }
 
+// Proxy Uploader for Public Access (No Login Required)
+class ProxyUploader {
+    async initialize() {
+        console.log('🚀 Proxy Uploader initialized');
+        return true;
+    }
+
+    async uploadPhoto(blob, metadata) {
+        try {
+            console.log('📤 Uploading via Proxy...');
+
+            // Convert blob to base64
+            const reader = new FileReader();
+            const base64Data = await new Promise((resolve) => {
+                reader.onloadend = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.readAsDataURL(blob);
+            });
+
+            const payload = {
+                image: base64Data,
+                filename: `captura_${Date.now()}.jpg`,
+                metadata: metadata
+            };
+
+            // Send to Apps Script Proxy
+            // Note: fetch with no-cors might be needed if CORS issues arise, 
+            // but Apps Script Web Apps usually handle CORS if deployed correctly.
+            // Using 'no-cors' mode makes the response opaque, so we can't read JSON.
+            // We'll try standard CORS first.
+
+            const response = await fetch(CONFIG.PROXY_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Proxy Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Unknown proxy error');
+            }
+
+            return {
+                success: true,
+                fileId: result.fileId,
+                filename: result.filename,
+                url: result.url
+            };
+
+        } catch (error) {
+            console.error('Proxy Upload Error:', error);
+
+            // Fallback for opaque responses (no-cors) if needed in future
+            // For now, return error
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    async uploadToSheets(data) {
+        // The proxy script ALREADY uploads to sheets.
+        // So this method is just a placeholder to satisfy the interface.
+        console.log('✅ Sheets update handled by proxy');
+        return { success: true };
+    }
+}
+
 window.DriveUploader = DriveUploader;
 window.MockUploader = MockUploader;
+window.ProxyUploader = ProxyUploader;
