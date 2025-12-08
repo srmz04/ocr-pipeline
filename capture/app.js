@@ -311,6 +311,43 @@ class CaptureApp {
         this.checkCanCapture();
     }
 
+    async saveOffline(blob, queueForProxy, metadataFallback, filename) {
+        console.log('Falling back to offline save...');
+        this.showLoading('Guardando offline...');
+
+        try {
+            // Convert blob to base64 for storage
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve) => {
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+
+            this.offlineManager.addToQueue(base64, {
+                queue: queueForProxy,
+                ...metadataFallback
+            }, filename);
+
+            this.hideLoading();
+            this.vibrate([50, 30, 50]);
+            this.showToast(`📴 ${this.productQueue.length} guardado(s) offline`);
+
+            // Clear queue and update UI
+            const itemCount = this.productQueue.length;
+            for (let i = 0; i < itemCount; i++) {
+                this.incrementCount();
+            }
+            this.clearQueue();
+            this.updateOfflineUI();
+            this.updateLastTime();
+
+        } catch (e) {
+            console.error('Offline save failed:', e);
+            this.hideLoading();
+            this.showToast('❌ Error fatal al guardar offline', 'error');
+        }
+    }
+
     async handleCapture() {
         if (this.productQueue.length === 0) {
             this.showToast('⚠️ Agrega productos primero');
@@ -338,68 +375,45 @@ class CaptureApp {
                 dosis: firstItem.dosis
             };
 
-            // Check if online
+            // 1. Check if definitely offline
             if (!navigator.onLine) {
-                // OFFLINE MODE: Save to local queue
-                this.showLoading('Guardando offline...');
+                await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
+                return;
+            }
 
-                // Convert blob to base64 for storage
-                const reader = new FileReader();
-                const base64 = await new Promise((resolve) => {
-                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                    reader.readAsDataURL(blob);
-                });
+            // 2. Attempt Online Upload
+            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
 
-                this.offlineManager.addToQueue(base64, {
-                    queue: queueForProxy,
-                    ...metadataFallback
-                }, filename);
+            try {
+                const driveResult = await this.uploader.uploadPhoto(
+                    blob,
+                    metadataFallback,
+                    queueForProxy
+                );
 
+                if (!driveResult.success) {
+                    throw new Error(driveResult.error || 'Upload failed');
+                }
+
+                // SUCCESS
                 this.hideLoading();
-                this.vibrate([50, 30, 50]);
-                this.showToast(`📴 ${this.productQueue.length} guardado(s) offline`);
+                this.vibrate([100, 50, 100]);
+                this.showToast(`✅ ${this.productQueue.length} producto(s) guardado(s)`);
 
-                // Clear queue and update UI
+                // Update state
                 const itemCount = this.productQueue.length;
                 for (let i = 0; i < itemCount; i++) {
                     this.incrementCount();
                 }
                 this.clearQueue();
-                this.updateOfflineUI();
                 this.updateLastTime();
-                return;
+
+            } catch (uploadError) {
+                // 3. FALLBACK ON UPLOAD ERROR
+                console.warn('Upload failed, falling back to offline:', uploadError);
+                this.showToast('⚠️ Error de red, guardando offline...', 'warning');
+                await this.saveOffline(blob, queueForProxy, metadataFallback, filename);
             }
-
-            // ONLINE MODE: Upload directly
-            this.showLoading(`Subiendo ${this.productQueue.length} producto(s)...`);
-
-            const driveResult = await this.uploader.uploadPhoto(
-                blob,
-                metadataFallback,
-                queueForProxy
-            );
-
-            if (!driveResult.success) {
-                throw new Error('Error al subir foto');
-            }
-
-            this.hideLoading();
-
-            // Update count (add all items)
-            const itemCount = this.productQueue.length;
-            for (let i = 0; i < itemCount; i++) {
-                this.incrementCount();
-            }
-
-            // Success feedback
-            this.vibrate([100, 50, 100]);
-            this.showToast(`✅ ${itemCount} producto(s) guardado(s)`);
-
-            // Clear queue after successful upload
-            this.clearQueue();
-
-            // Update last time
-            this.updateLastTime();
 
         } catch (error) {
             console.error('Capture error:', error);
