@@ -3,7 +3,7 @@ const CONFIG = {
     // Google API - CREDENCIALES CONFIGURADAS ✅
     GOOGLE_API_KEY: 'AIzaSyBgS9f8i0NHkH6b0AYZy6musOhEOYadW4w',
     GOOGLE_CLIENT_ID: '640594634744-skq9inktjis8t7s2hd5rknrljkms0c9b.apps.googleusercontent.com',
-    PROXY_URL: 'https://script.google.com/macros/s/AKfycbwszgx8dvyOels99wBuzgLxEU732vn2ZFDcQuw6cNKPAC7KssZDRNymI_i1ZHJP_xeC/exec', // 🚀 PUBLIC PROXY (Verified)
+    PROXY_URL: 'https://script.google.com/macros/s/AKfycbxY7lhI-6kxp_oGx-co5RIV-vLmhzj0UQE6pJw2CL4cAj6V37O1XJoKbsPv7aB_JZg8/exec', // 🚀 PUBLIC PROXY V2 (Multi-Product)
     DRIVE_FOLDER_ID: '16u48oAakKNZU3T1ttzvb9AqS8-IIQE_t', // Carpeta ENTRADAS (CORREGIDO)
     SPREADSHEET_ID: '1BiWRVISIADl9mRzOJABQLtlLLm7VebRYtfd2CRCoqXI', // REGISTRO_MASTER
 
