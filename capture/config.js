@@ -1,4 +1,3 @@
-```javascript
 // Configuration for the capture app
 const CONFIG = {
     // Google API - CREDENCIALES CONFIGURADAS ✅
