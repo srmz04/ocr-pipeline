@@ -3,9 +3,9 @@ const CONFIG = {
     // Google API - CREDENCIALES CONFIGURADAS ✅
     GOOGLE_API_KEY: 'AIzaSyBgS9f8i0NHkH6b0AYZy6musOhEOYadW4w',
     GOOGLE_CLIENT_ID: '640594634744-skq9inktjis8t7s2hd5rknrljkms0c9b.apps.googleusercontent.com',
-    // Google Apps Script Proxy URL (v3.1 - Dashboard enabled + Fix openById)
-    PROXY_URL: 'https://script.google.com/macros/s/AKfycbzzvsDmgH3Lt5VizzttPdRGo2UB6vfkp8suBu70hjlxDVg7w3y-6yFZ-KMCVRFzVfEr/exec', // 🚀 PUBLIC PROXY V2 (Multi-Product)
-    DRIVE_FOLDER_ID: '16u48oAakKNZU3T1ttzvb9AqS8-IIQE_t', // Carpeta ENTRADAS (CORREGIDO)
+    // Google Apps Script Proxy URL (v6 - OCR with Vision API enabled)
+    PROXY_URL: 'https://script.google.com/macros/s/AKfycbw-8a5zVFGMDZ1i-hMPIGKumNmzVsNrqMF6QtHQ8e7fQiItoOCHwhQVJdzT9VGVHCC6/exec',
+    DRIVE_FOLDER_ID: '16u48oAakKNZU3T1ttzvb9AqS8-IIQE_t', // Carpeta ENTRADAS
     SPREADSHEET_ID: '1BiWRVISIADl9mRzOJABQLtlLLm7VebRYtfd2CRCoqXI', // REGISTRO_MASTER
 
     // Validation thresholds - RELAXED FOR TESTING
