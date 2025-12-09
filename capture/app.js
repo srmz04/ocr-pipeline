@@ -1,20 +1,30 @@
 class CaptureApp {
     constructor() {
-        this.apiClient = new GoogleAPIClient();
-        this.camera = new CameraManager();
-        this.validator = new QualityValidator(this.camera);
-        this.uploader = null; // Initialized after API client
-        this.offlineManager = new OfflineManager(); // Offline queue manager
+        this.camera = new CameraManager(); // Now a processor, not a stream manager
+        this.uploader = null;
+        this.offlineManager = new OfflineManager();
 
         this.selectedProducto = null;
         this.selectedDosis = null;
-        this.productQueue = []; // Queue for multiple products
+        this.productQueue = [];
+
+        // Track current capture state
+        this.currentBlob = null;
+        this.currentPreviewUrl = null;
 
         this.elements = {};
         this.initializeElements();
         this.attachEventListeners();
         this.loadState();
-        this.updateOfflineUI(); // Check pending items on load
+        this.updateOfflineUI();
+
+        // Show device-specific tip
+        document.getElementById('deviceTip').textContent = this.camera.getDeviceTip();
+
+        // Handle iOS Standalone mode warning
+        if (this.camera.isIOSStandalone()) {
+            document.getElementById('iosWarning').classList.remove('hidden');
+        }
     }
 
     initializeElements() {
@@ -27,7 +37,6 @@ class CaptureApp {
             queueContainer: document.getElementById('queueContainer'),
             queueList: document.getElementById('queueList'),
             clearQueueBtn: document.getElementById('clearQueueBtn'),
-            captureBtn: document.getElementById('captureBtn'),
             historyBtn: document.getElementById('historyBtn'),
             helpBtn: document.getElementById('helpBtn'),
             historySidebar: document.getElementById('historySidebar'),
@@ -36,6 +45,14 @@ class CaptureApp {
             toast: document.getElementById('toast'),
             countToday: document.getElementById('countToday'),
             lastTime: document.getElementById('lastTime'),
+            // Native Input elements
+            nativeCameraInput: document.getElementById('nativeCameraInput'),
+            previewSection: document.getElementById('previewSection'),
+            previewImage: document.getElementById('previewImage'),
+            previewSize: document.getElementById('previewSize'),
+            previewQuality: document.getElementById('previewQuality'),
+            retakeBtn: document.getElementById('retakeBtn'),
+            confirmBtn: document.getElementById('confirmBtn'),
             // Offline UI elements
             offlineBar: document.getElementById('offlineBar'),
             offlineIcon: document.getElementById('offlineIcon'),
@@ -60,9 +77,21 @@ class CaptureApp {
             });
         });
 
-        // Capture button
-        this.elements.captureBtn.addEventListener('click', () => {
-            this.handleCapture();
+        // 🆕 NATIVE INPUT: File change handler (triggered when user takes photo)
+        this.elements.nativeCameraInput.addEventListener('change', async (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                await this.handleNativeCapture(e.target.files[0]);
+            }
+        });
+
+        // 🆕 Preview: Retake button
+        this.elements.retakeBtn.addEventListener('click', () => {
+            this.cancelPreview();
+        });
+
+        // 🆕 Preview: Confirm button
+        this.elements.confirmBtn.addEventListener('click', () => {
+            this.confirmCapture();
         });
 
         // History button
@@ -113,28 +142,127 @@ class CaptureApp {
     async init() {
         this.showLoading('Iniciando...');
 
-        // 🚀 PUBLIC MODE: Use Proxy Uploader directly
-        // No Google Auth required on client side
-        console.log('Using Public Proxy Uploader');
+        // Use Proxy Uploader directly (no Google Auth on client)
+        console.log('Using Proxy Uploader - Native Input First');
         this.uploader = new ProxyUploader();
         await this.uploader.initialize();
 
-        this.showLoading('Iniciando cámara...');
+        // No camera initialization needed - we use native input!
+        
+        this.hideLoading();
+        this.showToast('¡Listo para capturar!');
+    }
 
-        const cameraOk = await this.camera.initialize();
-        if (!cameraOk) {
-            this.hideLoading();
+    // =====================================================
+    // NATIVE INPUT CAPTURE FLOW
+    // =====================================================
+
+    /**
+     * Handle file from native camera input
+     * Pipeline: File → Process → Validate → Preview → (User confirms) → Upload
+     */
+    async handleNativeCapture(file) {
+        // Check queue first
+        if (this.productQueue.length === 0) {
+            this.showToast('⚠️ Agrega productos primero');
+            this.elements.nativeCameraInput.value = ''; // Reset input
             return;
         }
 
-        // Start quality validation
-        this.validator.startContinuousValidation((result) => {
-            this.updateStatus(result);
-            this.updateCaptureButton(result.valid);
-        });
+        this.showLoading('Procesando imagen...');
 
-        this.hideLoading();
-        this.showToast('¡Listo para capturar!');
+        try {
+            // 1. Process image (resize + compress)
+            const result = await this.camera.processImage(file);
+            
+            // 2. Store for later confirmation
+            this.currentBlob = result.blob;
+            
+            // 3. Validate quality using file size heuristic
+            const validation = this.camera.validateQuality(result.finalSize);
+            
+            // 4. Show preview
+            this.showPreview(result, validation);
+            
+            this.hideLoading();
+            
+        } catch (error) {
+            console.error('Native capture error:', error);
+            this.hideLoading();
+            this.showToast('❌ Error al procesar imagen: ' + error.message, 'error');
+            this.elements.nativeCameraInput.value = '';
+        }
+    }
+
+    /**
+     * Display preview with quality info
+     */
+    showPreview(result, validation) {
+        // Create preview URL
+        this.currentPreviewUrl = this.camera.createPreviewURL(result.blob);
+        this.elements.previewImage.src = this.currentPreviewUrl;
+        
+        // Show size info
+        const sizeMB = (result.finalSize / 1024 / 1024).toFixed(2);
+        const originalMB = (result.originalSize / 1024 / 1024).toFixed(2);
+        this.elements.previewSize.textContent = `${result.width}x${result.height} | ${sizeMB}MB (de ${originalMB}MB)`;
+        
+        // Show quality indicator
+        if (validation.valid) {
+            this.elements.previewQuality.textContent = '✅ Calidad OK';
+            this.elements.previewQuality.classList.add('valid');
+            this.elements.previewQuality.classList.remove('invalid');
+        } else {
+            this.elements.previewQuality.textContent = '⚠️ ' + validation.message;
+            this.elements.previewQuality.classList.add('invalid');
+            this.elements.previewQuality.classList.remove('valid');
+        }
+        
+        // Show preview section
+        this.elements.previewSection.classList.remove('hidden');
+        
+        // Vibrate feedback
+        this.vibrate(100);
+    }
+
+    /**
+     * User wants to retake photo
+     */
+    cancelPreview() {
+        // Clean up
+        if (this.currentPreviewUrl) {
+            this.camera.revokePreviewURL(this.currentPreviewUrl);
+            this.currentPreviewUrl = null;
+        }
+        this.currentBlob = null;
+        
+        // Hide preview, reset input
+        this.elements.previewSection.classList.add('hidden');
+        this.elements.nativeCameraInput.value = '';
+        
+        this.showToast('Toma otra foto');
+    }
+
+    /**
+     * User confirms the capture - proceed to upload
+     */
+    async confirmCapture() {
+        if (!this.currentBlob) {
+            this.showToast('❌ No hay imagen para subir');
+            return;
+        }
+
+        // Hand off to processCapture (existing upload logic)
+        await this.processCapture(this.currentBlob);
+        
+        // Clean up preview
+        if (this.currentPreviewUrl) {
+            this.camera.revokePreviewURL(this.currentPreviewUrl);
+            this.currentPreviewUrl = null;
+        }
+        this.currentBlob = null;
+        this.elements.previewSection.classList.add('hidden');
+        this.elements.nativeCameraInput.value = '';
     }
 
     selectProducto(name) {
@@ -212,17 +340,21 @@ class CaptureApp {
 
         // Enable "Add to Queue" button when product and dose are selected
         this.elements.addToQueueBtn.disabled = !hasSelection;
-
-        // Enable "Capture" button when queue has items
+        
+        // Update status based on queue (native input doesn't need enable/disable)
         const hasQueueItems = this.productQueue.length > 0;
-        this.elements.captureBtn.disabled = !hasQueueItems;
-
-        // Update capture button text to show count
         if (hasQueueItems) {
-            this.elements.captureBtn.querySelector('.capture-text').textContent =
-                `CAPTURAR (${this.productQueue.length})`;
+            this.updateStatusText(`📋 ${this.productQueue.length} producto(s) en cola - Toca el botón verde para capturar`);
+        } else if (hasSelection) {
+            this.updateStatusText('✅ Producto seleccionado - Agrégalo a la cola');
         } else {
-            this.elements.captureBtn.querySelector('.capture-text').textContent = 'CAPTURAR';
+            this.updateStatusText('⬆️ Selecciona producto y dosis');
+        }
+    }
+
+    updateStatusText(text) {
+        if (this.elements.status) {
+            this.elements.status.textContent = text;
         }
     }
 

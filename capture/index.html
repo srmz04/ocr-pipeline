@@ -40,49 +40,58 @@
         </div>
     </header>
 
-    <!-- Camera View -->
-    <main class="camera-container">
-        <!-- Camera Section -->
-        <div id="cameraSection" class="hidden flex-1 flex flex-col relative bg-black">
-            <!-- Camera Feed -->
-            <div class="camera-container relative w-full flex-1 bg-black overflow-hidden flex justify-center items-center">
-                <video id="camera" autoplay playsinline class="w-full h-full object-contain"></video>
-                <div class="guide-frame"></div>
-                <!-- Zoom Slider Overlay -->
-                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 z-20 flex flex-col items-center">
-                    <label class="text-white text-xs mb-1 font-bold drop-shadow-md">🔍 Zoom Digital</label>
-                    <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                </div>
+    <!-- Camera View - Native Input First Architecture -->
+    <main class="capture-container">
+        <!-- Instructions Panel -->
+        <div class="instructions-panel">
+            <div class="instruction-icon">📷</div>
+            <h2>Captura de Documento</h2>
+            <ul class="instruction-list">
+                <li>📏 Mantén el teléfono a 15-20 cm</li>
+                <li>💡 Busca buena iluminación</li>
+                <li>📄 Coloca el documento en superficie plana</li>
+            </ul>
+            <p id="deviceTip" class="device-tip"></p>
+        </div>
+
+        <!-- Native Camera Button (Primary) -->
+        <div class="capture-actions">
+            <label for="nativeCameraInput" class="capture-button primary">
+                <span class="capture-icon">📸</span>
+                <span class="capture-text">TOMAR FOTO</span>
+            </label>
+            <input type="file" 
+                   id="nativeCameraInput" 
+                   accept="image/*" 
+                   capture="environment" 
+                   hidden>
+        </div>
+
+        <!-- Preview Section (hidden until photo taken) -->
+        <div id="previewSection" class="preview-section hidden">
+            <img id="previewImage" class="preview-image" alt="Vista previa">
+            <div class="preview-info">
+                <span id="previewSize" class="preview-size"></span>
+                <span id="previewQuality" class="preview-quality"></span>
             </div>
-
-            <!-- Controls -->
-            <div class="p-4 bg-gray-900 grid grid-cols-2 gap-4">
-                <button id="captureBtn" class="col-span-1 bg-white hover:bg-gray-100 text-gray-900 font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 transition-all flex flex-col items-center justify-center">
-                    <span class="text-3xl mb-1">📸</span>
-                    <span class="text-sm">Capturar</span>
+            <div class="preview-actions">
+                <button id="retakeBtn" class="action-btn secondary">
+                    🔄 Otra vez
                 </button>
-
-                <!-- Native Camera Fallback -->
-                <button id="nativeCameraBtn" class="col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform active:scale-95 transition-all flex flex-col items-center justify-center">
-                    <span class="text-3xl mb-1">📱</span>
-                    <span class="text-sm">Cámara Nativa</span>
+                <button id="confirmBtn" class="action-btn primary">
+                    ✅ Usar esta
                 </button>
-                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" hidden>
             </div>
         </div>
-        <canvas id="overlay"></canvas>
+
+        <!-- iOS Standalone Warning (hidden by default) -->
+        <div id="iosWarning" class="ios-warning hidden">
+            <p>⚠️ Si la cámara no abre, toca aquí para <a href="#" id="openInSafari">abrir en Safari</a></p>
+        </div>
 
         <!-- Status Indicator -->
         <div id="status" class="status status-ready">
             🟢 Listo para capturar
-        </div>
-
-        <!-- Guide Frame -->
-        <div id="guideFrame" class="guide-frame">
-            <div class="corner corner-tl"></div>
-            <div class="corner corner-tr"></div>
-            <div class="corner corner-bl"></div>
-            <div class="corner corner-br"></div>
         </div>
     </main>
 

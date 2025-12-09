@@ -78,59 +78,177 @@ body {
    Camera Container
    ============================================ */
 /* ============================================
-   Camera Container
+   Native Input First - Capture UI
    ============================================ */
-/* ============================================
-   Camera Container
-   ============================================ */
-.camera-container {
-    position: relative;
-    width: 100%;
-    height: 60vh;
-    /* Aumentado para ver mejor */
-    background: #000;
-    overflow: hidden;
+.capture-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    min-height: 40vh;
 }
 
-#camera {
+.instructions-panel {
+    text-align: center;
+    color: white;
+    padding: 1.5rem;
+    max-width: 320px;
+}
+
+.instruction-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.instructions-panel h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #e0e0e0;
+}
+
+.instruction-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+    text-align: left;
+}
+
+.instruction-list li {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.device-tip {
+    font-size: 0.85rem;
+    color: #4fc3f7;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+/* Main Capture Button */
+.capture-actions {
+    margin: 1rem 0;
+}
+
+.capture-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 4px solid white;
+}
+
+.capture-button.primary {
+    background: linear-gradient(145deg, #4CAF50, #2E7D32);
+    box-shadow: 0 8px 32px rgba(76, 175, 80, 0.4);
+}
+
+.capture-button.primary:hover,
+.capture-button.primary:active {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(76, 175, 80, 0.6);
+}
+
+.capture-icon {
+    font-size: 3rem;
+    display: block;
+}
+
+.capture-text {
+    font-size: 1rem;
+    font-weight: bold;
+    color: white;
+    margin-top: 0.5rem;
+}
+
+/* Preview Section */
+.preview-section {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
-    /* CRUCIAL: Muestra todo el sensor, sin recortes */
-}
-
-#overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 5;
-}
-
-/* Guide Frame - Centered target for the ID */
-.guide-frame {
-    position: absolute;
-    /* Center exactly relative to container */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-
-    /* ID Card Dimensions (standard credit card ratio) */
-    width: 85%;
-    max-width: 350px;
-    aspect-ratio: 1.586;
-
-    border: 2px solid rgba(255, 255, 255, 0.9);
+    max-width: 400px;
+    margin: 1rem auto;
+    background: #fff;
     border-radius: 12px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-    /* Oscurece el resto */
-    z-index: 10;
-    pointer-events: none;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.preview-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.preview-info {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: #f5f5f5;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.preview-quality.valid {
+    color: #4CAF50;
+}
+
+.preview-quality.invalid {
+    color: #f44336;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    justify-content: center;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn.primary {
+    background: #4CAF50;
+    color: white;
+}
+
+.action-btn.secondary {
+    background: #757575;
+    color: white;
+}
+
+.action-btn:active {
+    transform: scale(0.95);
+}
+
+/* iOS Warning */
+.ios-warning {
+    background: #fff3cd;
+    color: #856404;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin: 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.ios-warning a {
+    color: #0056b3;
+    text-decoration: underline;
 }
 
 /* ============================================
