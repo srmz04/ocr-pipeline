@@ -148,7 +148,7 @@ class CaptureApp {
         await this.uploader.initialize();
 
         // No camera initialization needed - we use native input!
-        
+
         this.hideLoading();
         this.showToast('¡Listo para capturar!');
     }
@@ -174,18 +174,18 @@ class CaptureApp {
         try {
             // 1. Process image (resize + compress)
             const result = await this.camera.processImage(file);
-            
+
             // 2. Store for later confirmation
             this.currentBlob = result.blob;
-            
+
             // 3. Validate quality using file size heuristic
             const validation = this.camera.validateQuality(result.finalSize);
-            
+
             // 4. Show preview
             this.showPreview(result, validation);
-            
+
             this.hideLoading();
-            
+
         } catch (error) {
             console.error('Native capture error:', error);
             this.hideLoading();
@@ -201,12 +201,12 @@ class CaptureApp {
         // Create preview URL
         this.currentPreviewUrl = this.camera.createPreviewURL(result.blob);
         this.elements.previewImage.src = this.currentPreviewUrl;
-        
+
         // Show size info
         const sizeMB = (result.finalSize / 1024 / 1024).toFixed(2);
         const originalMB = (result.originalSize / 1024 / 1024).toFixed(2);
         this.elements.previewSize.textContent = `${result.width}x${result.height} | ${sizeMB}MB (de ${originalMB}MB)`;
-        
+
         // Show quality indicator
         if (validation.valid) {
             this.elements.previewQuality.textContent = '✅ Calidad OK';
@@ -217,10 +217,10 @@ class CaptureApp {
             this.elements.previewQuality.classList.add('invalid');
             this.elements.previewQuality.classList.remove('valid');
         }
-        
+
         // Show preview section
         this.elements.previewSection.classList.remove('hidden');
-        
+
         // Vibrate feedback
         this.vibrate(100);
     }
@@ -235,16 +235,16 @@ class CaptureApp {
             this.currentPreviewUrl = null;
         }
         this.currentBlob = null;
-        
+
         // Hide preview, reset input
         this.elements.previewSection.classList.add('hidden');
         this.elements.nativeCameraInput.value = '';
-        
+
         this.showToast('Toma otra foto');
     }
 
     /**
-     * User confirms the capture - proceed to upload
+     * User confirms the capture - run OCR and proceed to upload
      */
     async confirmCapture() {
         if (!this.currentBlob) {
@@ -252,9 +252,40 @@ class CaptureApp {
             return;
         }
 
-        // Hand off to processCapture (existing upload logic)
-        await this.processCapture(this.currentBlob);
-        
+        // Run OCR before upload
+        this.showLoading('📖 Leyendo documento...');
+        let ocrResult = { success: false, extractedData: {} };
+
+        try {
+            // Initialize OCR engine if needed (first use)
+            if (!window.ocrEngine.isReady) {
+                this.showLoading('📖 Cargando OCR... (solo la primera vez)');
+            }
+
+            ocrResult = await window.ocrEngine.recognize(this.currentBlob);
+
+            if (ocrResult.success) {
+                console.log('[OCR] Success! Raw text:', ocrResult.rawText.substring(0, 200));
+                console.log('[OCR] Extracted:', ocrResult.extractedData);
+
+                // Show what was found
+                const curp = ocrResult.extractedData.curp;
+                if (curp) {
+                    this.showToast(`✅ CURP: ${curp}`, 'success');
+                } else {
+                    this.showToast('⚠️ No se detectó CURP', 'warning');
+                }
+            } else {
+                console.warn('[OCR] Failed:', ocrResult.error);
+                this.showToast('⚠️ OCR falló, subiendo sin datos', 'warning');
+            }
+        } catch (ocrError) {
+            console.error('[OCR] Exception:', ocrError);
+        }
+
+        // Hand off to processCapture with OCR data
+        await this.processCapture(this.currentBlob, ocrResult);
+
         // Clean up preview
         if (this.currentPreviewUrl) {
             this.camera.revokePreviewURL(this.currentPreviewUrl);
@@ -340,7 +371,7 @@ class CaptureApp {
 
         // Enable "Add to Queue" button when product and dose are selected
         this.elements.addToQueueBtn.disabled = !hasSelection;
-        
+
         // Update status based on queue (native input doesn't need enable/disable)
         const hasQueueItems = this.productQueue.length > 0;
         if (hasQueueItems) {
@@ -549,7 +580,7 @@ class CaptureApp {
     }
 
     // Common processing logic for both WebRTC and Native File
-    async processCapture(blob) {
+    async processCapture(blob, ocrResult = null) {
         const filename = `captura_${Date.now()}.jpg`;
 
         // Prepare queue for proxy (format: array of {producto, dosis})
@@ -578,7 +609,8 @@ class CaptureApp {
             const driveResult = await this.uploader.uploadPhoto(
                 blob,
                 metadataFallback,
-                queueForProxy
+                queueForProxy,
+                ocrResult // Pass OCR data to uploader
             );
 
             if (!driveResult.success) {

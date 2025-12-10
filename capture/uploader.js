@@ -195,8 +195,8 @@ class ProxyUploader {
         return true;
     }
 
-    // uploadPhoto now accepts optional queue array for multi-product capture
-    async uploadPhoto(blob, metadata, queue = null) {
+    // uploadPhoto now accepts optional queue array and OCR data
+    async uploadPhoto(blob, metadata, queue = null, ocrData = null) {
         try {
             console.log('📤 Uploading via Proxy...');
 
@@ -214,7 +214,8 @@ class ProxyUploader {
                 image: base64Data,
                 filename: `captura_${Date.now()}.jpg`,
                 metadata: metadata, // Single item fallback
-                queue: queue || []  // Array of {producto, dosis} for multi-column
+                queue: queue || [],  // Array of {producto, dosis} for multi-column
+                ocrData: ocrData || null // Client-side OCR data
             };
 
             console.log('📦 Payload queue items:', queue ? queue.length : 0);
