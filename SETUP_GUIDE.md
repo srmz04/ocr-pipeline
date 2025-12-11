@@ -167,7 +167,7 @@ MACROCENTRO/
 **Opción A: Desde la terminal (recomendado)**
 
 ```bash
-cd /home/uy/Dropbox/ConexionDGIS/REGISTRO
+cd /home/uy/Dropbox/smrz04/REGISTRO
 
 # Inicializar git
 git init
