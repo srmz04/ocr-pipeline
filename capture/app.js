@@ -620,7 +620,10 @@ class CaptureApp {
             // SUCCESS
             this.hideLoading();
             this.vibrate([100, 50, 100]);
-            this.showToast(`✅ ${this.productQueue.length} producto(s) guardado(s)`);
+            console.log('✅ Success block reached!');
+            this.showToast(`✅ ¡Subida Exitosa! ${this.productQueue.length} producto(s) registrado(s)`, 'success');
+            // Explicit alert as requested for visibility
+            alert(`✅ ¡Subida Exitosa!\n\n${this.productQueue.length} producto(s) registrado(s).`);
 
             // Update state
             const itemCount = this.productQueue.length;
