@@ -39,6 +39,7 @@
             </button>
         </div>
     </header>
+    <div style="text-align: center; font-size: 10px; color: #666;">v2.1 (FIX CACHE)</div>
 
     <!-- Compact Instructions (at top, minimal) -->
     <div class="compact-instructions">
@@ -226,9 +227,17 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
-                    .catch(err => console.error('[PWA] SW registration failed:', err));
+                // FORCE UNREGISTER TO CLEAR CACHE
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    for (let registration of registrations) {
+                        console.log('Unregistering SW:', registration);
+                        registration.unregister();
+                    }
+                    if (registrations.length > 0) {
+                        alert('✅ Actualización detectada. La página se recargará automáticamente en 3 segundos perdiendo el caché antiguo.');
+                        setTimeout(() => window.location.reload(), 3000);
+                    }
+                });
             });
         }
     </script>
