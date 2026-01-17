@@ -1,5 +1,5 @@
 // Service Worker for PWA - Caches app shell for offline use
-const CACHE_NAME = 'captura-vacunas-v2';
+const CACHE_NAME = 'captura-vacunas-v3';
 const STATIC_ASSETS = [
     './',
     './index.html',
