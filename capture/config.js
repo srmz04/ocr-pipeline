@@ -26,9 +26,9 @@ const CONFIG = {
         { name: 'SRP (Triple Viral)', dosis: ['Primera', 'Segunda'] },
         { name: 'DPT', dosis: ['Refuerzo'] },
         { name: 'VPH', dosis: ['Única'] },
-        { name: 'COVID', dosis: ['Refuerzo Anual'] },
-        { name: 'SR', dosis: ['Primera', 'Segunda', 'Refuerzo'] },
-        { name: 'OTRA', dosis: ['Primera', 'Segunda', 'Tercera', 'Refuerzo', 'Única', 'Otro'] }
+        { name: 'COVID', dosis: ['1ra', '2da', 'Refuerzo Anual'] },
+        { name: 'SR', dosis: ['Cero', 'Primera', 'Segunda', 'Refuerzo'] },
+        { name: 'TD', dosis: ['Primera', 'Segunda', 'Tercera'] }
     ],
 
     // UI Settings
