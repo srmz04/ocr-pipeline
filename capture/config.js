@@ -18,7 +18,7 @@ const CONFIG = {
     PRODUCTOS: [
         { name: 'VITAMINAS ACD', dosis: ['Refuerzo Anual'] },
         { name: 'BCG', dosis: ['Única'] },
-        { name: 'Hepatitis B', dosis: ['Única'] },
+        { name: 'Hepatitis B', dosis: ['Primera', 'Segunda', 'Tercera'] },
         { name: 'Hexavalente', dosis: ['Primera', 'Segunda', 'Tercera', 'Cuarta'] },
         { name: 'Rotavirus', dosis: ['Primera', 'Segunda', 'Tercera'] },
         { name: 'Neumocócica Conjugada', dosis: ['Primera', 'Segunda', 'Refuerzo'] },
